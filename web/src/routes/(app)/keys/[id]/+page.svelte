@@ -44,7 +44,7 @@
 			expiresAt: k.expiresAt,
 			allowedModels: [...k.allowedModels],
 			rpmLimit: k.rpmLimit,
-			displayProfileId: String(k.displayProfileId ?? 0),
+			displayProfileId: k.displayConfig ? 'custom' : String(k.displayProfileId ?? 0),
 			rules: (k.modelRules?.rules ?? []).map((r) => ({ ...r, formats: r.formats ?? [] })),
 			ignoreGlobal: k.modelRules?.ignoreGlobal ?? false
 		};
@@ -82,10 +82,12 @@
 	}
 
 	const profileLabel = $derived(
-		form.displayProfileId === '0'
-			? 'Default profile'
-			: (data.profiles.find((p) => String(p.id) === form.displayProfileId)?.name ??
-					'Default profile')
+		form.displayProfileId === 'custom'
+			? 'Its own view'
+			: form.displayProfileId === '0'
+				? 'Default view'
+				: (data.profiles.find((p) => String(p.id) === form.displayProfileId)?.name ??
+					'Default view')
 	);
 	const keyRules = $derived<KeyRules>({ rules: form.rules, ignoreGlobal: form.ignoreGlobal });
 
@@ -101,7 +103,13 @@
 				name: f.name,
 				allowedModels: f.allowedModels,
 				rpmLimit: Math.max(0, Number(f.rpmLimit) || 0),
-				displayProfileId: Number(f.displayProfileId),
+				...(f.displayProfileId === 'custom'
+					? {
+							displayProfileId: 0,
+							// Keep the existing view; a new one starts from the default.
+							displayConfig: data.key.displayConfig ?? data.defaultView
+						}
+					: { displayProfileId: Number(f.displayProfileId), displayConfig: null }),
 				modelRules: { rules: f.rules, ignoreGlobal: f.ignoreGlobal },
 				...(f.expiresAt !== data.key.expiresAt ? { expiresAt: f.expiresAt } : {})
 			});
@@ -251,17 +259,38 @@
 					<Field.Description>0 means no limit.</Field.Description>
 				</Field.Field>
 				<Field.Field>
-					<Field.Label>Quota page profile</Field.Label>
-					<Select.Root type="single" bind:value={form.displayProfileId}>
-						<Select.Trigger class="w-64">{profileLabel}</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="0" label="Default profile">Default profile</Select.Item>
-							{#each data.profiles as p (p.id)}
-								<Select.Item value={String(p.id)} label={p.name}>{p.name}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-					<Field.Description>What this key's holder sees on the quota page.</Field.Description>
+					<Field.Label>Quota page view</Field.Label>
+					<div class="flex flex-wrap items-center gap-2">
+						<Select.Root type="single" bind:value={form.displayProfileId}>
+							<Select.Trigger class="w-64">{profileLabel}</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="0" label="Default view">Default view</Select.Item>
+								<Select.Item value="custom" label="Its own view">Its own view</Select.Item>
+								{#if data.profiles.length}
+									<Select.Separator />
+									<Select.Label>Profiles</Select.Label>
+									{#each data.profiles as p (p.id)}
+										<Select.Item value={String(p.id)} label={p.name}>{p.name}</Select.Item>
+									{/each}
+								{/if}
+							</Select.Content>
+						</Select.Root>
+						{#if form.displayProfileId === 'custom' && data.key.displayConfig && !draft.dirty}
+							<Button variant="outline" size="sm" href="/keys/{data.key.id}/quota-view"
+								>Edit its view</Button
+							>
+						{:else if form.displayProfileId === 'custom'}
+							<span class="text-xs text-muted-foreground">Save, then edit it.</span>
+						{:else if form.displayProfileId !== '0'}
+							<Button variant="ghost" size="sm" href="/quota-page/profiles/{form.displayProfileId}"
+								>Edit profile</Button
+							>
+						{/if}
+					</div>
+					<Field.Description>
+						What this key's holder sees on the quota page: the default, a view set just for this
+						key, or a shared profile.
+					</Field.Description>
 				</Field.Field>
 			</Field.Group>
 		</Card.Content>

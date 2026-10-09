@@ -8,11 +8,14 @@ import (
 // PageSettings controls the public quota page as a whole.
 type PageSettings struct {
 	Enabled bool `json:"enabled"`
-	// Access is "key" (any valid API key) or "public" (no key needed; uses the default profile).
-	Access           string `json:"access"`
-	Title            string `json:"title"`
-	Notice           string `json:"notice"`
-	DefaultProfileID int64  `json:"defaultProfileId"`
+	// Access is "key" (any valid API key) or "public" (no key needed; uses the default view).
+	Access string `json:"access"`
+	Title  string `json:"title"`
+	Notice string `json:"notice"`
+	// DefaultView is what keys without their own view or profile see. DefaultProfileID, when
+	// set, uses a saved profile instead.
+	DefaultView      *Profile `json:"defaultView"`
+	DefaultProfileID int64    `json:"defaultProfileId"`
 }
 
 func DefaultPageSettings() PageSettings {
@@ -23,6 +26,11 @@ func (p *PageSettings) Normalize() {
 	if p.Access != "public" {
 		p.Access = "key"
 	}
+	if p.DefaultView == nil {
+		d := DefaultProfile()
+		p.DefaultView = &d
+	}
+	p.DefaultView.Normalize()
 	if len(p.Title) > 100 {
 		p.Title = p.Title[:100]
 	}

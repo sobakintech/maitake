@@ -1,0 +1,1 @@
+ALTER TABLE api_keys ADD COLUMN display_config TEXT NOT NULL DEFAULT '';

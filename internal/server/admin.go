@@ -183,6 +183,15 @@ func (s *Server) updateKey(w http.ResponseWriter, r *http.Request) {
 		raw := json.RawMessage(normalized)
 		body.ModelRules = &raw
 	}
+	if body.DisplayConfig != nil && string(*body.DisplayConfig) != "null" {
+		cfg, err := normalizedConfig(*body.DisplayConfig)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid quota page view: "+err.Error())
+			return
+		}
+		raw := json.RawMessage(cfg)
+		body.DisplayConfig = &raw
+	}
 	if body.ExpiresAt.Value != nil && !body.ExpiresAt.Value.After(time.Now()) {
 		writeError(w, http.StatusBadRequest, "expiry must be in the future")
 		return

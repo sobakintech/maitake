@@ -49,9 +49,11 @@
 				? `${key.modelRules.rules.length} mapping rule${key.modelRules.rules.length === 1 ? '' : 's'}`
 				: '',
 			key.rpmLimit ? `${key.rpmLimit}/min` : '',
-			key.displayProfileId
-				? `profile: ${profiles.find((p) => p.id === key.displayProfileId)?.name ?? '?'}`
-				: ''
+			key.displayConfig
+				? 'own quota view'
+				: key.displayProfileId
+					? `profile: ${profiles.find((p) => p.id === key.displayProfileId)?.name ?? '?'}`
+					: ''
 		]
 			.filter(Boolean)
 			.join(' · ');

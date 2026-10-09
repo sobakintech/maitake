@@ -104,11 +104,6 @@ func (s *Server) createProfile(w http.ResponseWriter, r *http.Request) {
 		writeStoreError(w, r, err)
 		return
 	}
-	// The first profile becomes the default automatically.
-	if cur := s.settings.Get(); cur.QuotaPage.DefaultProfileID == 0 {
-		cur.QuotaPage.DefaultProfileID = p.ID
-		_, _ = s.settings.Put(r.Context(), cur)
-	}
 	writeJSON(w, http.StatusCreated, map[string]any{"profile": s.profileView(*p)})
 }
 
@@ -181,13 +176,15 @@ func (s *Server) quotaMeta(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"enabled": page.Enabled, "access": page.Access, "title": page.Title})
 }
 
+// defaultProfile is the view for keys without their own: a chosen profile, else the default view.
 func (s *Server) defaultProfile(r *http.Request) quota.Profile {
-	if id := s.settings.Get().QuotaPage.DefaultProfileID; id > 0 {
-		if p, err := s.store.GetProfile(r.Context(), id); err == nil {
+	page := s.settings.Get().QuotaPage
+	if page.DefaultProfileID > 0 {
+		if p, err := s.store.GetProfile(r.Context(), page.DefaultProfileID); err == nil {
 			return quota.ParseProfile(p.Config)
 		}
 	}
-	return quota.DefaultProfile()
+	return *page.DefaultView
 }
 
 // publicQuota serves the quota page, filtered by the viewer's display profile.
@@ -208,7 +205,10 @@ func (s *Server) publicQuota(w http.ResponseWriter, r *http.Request) {
 			writeStoreError(w, r, err)
 			return
 		}
-		if id := owner.Key.DisplayProfileID; id != nil {
+		// A key's own view wins, then its profile, then the default.
+		if len(owner.Key.DisplayConfig) > 0 {
+			profile = quota.ParseProfile(owner.Key.DisplayConfig)
+		} else if id := owner.Key.DisplayProfileID; id != nil {
 			if p, err := s.store.GetProfile(r.Context(), *id); err == nil {
 				profile = quota.ParseProfile(p.Config)
 			}

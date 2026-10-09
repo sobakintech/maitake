@@ -158,6 +158,7 @@ export type PageSettings = {
 	access: 'key' | 'public';
 	title: string;
 	notice: string;
+	defaultView: ProfileConfig;
 	defaultProfileId: number;
 };
 

@@ -45,6 +45,8 @@ export type ApiKey = {
 	allowedModels: string[];
 	rpmLimit: number;
 	displayProfileId: number | null;
+	// The key's own quota page view; it overrides the profile.
+	displayConfig: ProfileConfig | null;
 	modelRules: KeyRules | null;
 	copyable: boolean;
 };
@@ -107,6 +109,7 @@ export const api = {
 			Pick<ApiKey, 'name' | 'disabled' | 'allowedModels' | 'rpmLimit' | 'expiresAt' | 'modelRules'>
 		> & {
 			displayProfileId?: number;
+			displayConfig?: ProfileConfig | null;
 		}
 	) => request<{ key: ApiKey }>('PATCH', `/admin/keys/${id}`, patch),
 	deleteKey: (id: number) => request<void>('DELETE', `/admin/keys/${id}`)

@@ -14,6 +14,7 @@
 	import * as RadioGroup from '#lib/components/ui/radio-group/index.js';
 	import { Switch } from '#lib/components/ui/switch/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -119,7 +120,7 @@
 								<Label for="acc-key" class="flex flex-col items-start gap-0.5 font-normal">
 									<span class="font-medium">Anyone with a valid API key</span>
 									<span class="text-muted-foreground"
-										>Each key sees the display profile assigned to it.</span
+										>Each key sees its own view, its profile, or the default.</span
 									>
 								</Label>
 							</div>
@@ -128,8 +129,7 @@
 								<Label for="acc-public" class="flex flex-col items-start gap-0.5 font-normal">
 									<span class="font-medium">Everyone</span>
 									<span class="text-muted-foreground">
-										No key needed; visitors see the default profile. A key still unlocks its own
-										profile.
+										No key needed; visitors see the default view. A key still unlocks its own view.
 									</span>
 								</Label>
 							</div>
@@ -158,10 +158,55 @@
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Display profiles</Card.Title>
+			<Card.Title>Default view</Card.Title>
 			<Card.Description>
-				Each profile decides what's visible. Assign profiles to keys on a user's page; keys without
-				one use the default.
+				What keys see unless they have their own view or a profile. Set those on each key's page.
+			</Card.Description>
+		</Card.Header>
+		<Card.Content class="flex flex-wrap items-center gap-2">
+			<Select.Root
+				type="single"
+				value={String(form.quotaPage.defaultProfileId)}
+				onValueChange={(v) => {
+					const id = Number(v);
+					const name = data.profiles.find((p) => p.id === id)?.name;
+					setDefault(id, id ? `${name} is now the default` : 'Using the default view');
+				}}
+			>
+				<Select.Trigger class="w-64">
+					{form.quotaPage.defaultProfileId
+						? (data.profiles.find((p) => p.id === form.quotaPage.defaultProfileId)?.name ??
+							'Default view')
+						: 'Default view'}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="0" label="Default view">Default view</Select.Item>
+					{#if data.profiles.length}
+						<Select.Separator />
+						<Select.Label>Or a profile</Select.Label>
+						{#each data.profiles as p (p.id)}
+							<Select.Item value={String(p.id)} label={p.name}>{p.name}</Select.Item>
+						{/each}
+					{/if}
+				</Select.Content>
+			</Select.Root>
+			{#if form.quotaPage.defaultProfileId}
+				<Button
+					variant="outline"
+					size="sm"
+					href="/quota-page/profiles/{form.quotaPage.defaultProfileId}">Edit profile</Button
+				>
+			{:else}
+				<Button variant="outline" size="sm" href="/quota-page/default">Edit default view</Button>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Profiles</Card.Title>
+			<Card.Description>
+				Optional: saved views you can give to several keys at once.
 			</Card.Description>
 			<Card.Action>
 				<Button size="sm" onclick={() => (newProfileOpen = true)}><PlusIcon /> New profile</Button>
@@ -170,8 +215,7 @@
 		<Card.Content>
 			{#if data.profiles.length === 0}
 				<p class="py-4 text-sm text-muted-foreground">
-					No profiles yet, so everyone sees the built-in default: pooled limits, percentages left,
-					no account names.
+					No profiles. Keys use the default view or their own.
 				</p>
 			{:else}
 				<Table.Root>
@@ -371,7 +415,7 @@
 		<AlertDialog.Header>
 			<AlertDialog.Title>Delete {deleting?.name}?</AlertDialog.Title>
 			<AlertDialog.Description>
-				{deleting?.keyCount ?? 0} key(s) use it; they'll fall back to the default profile.
+				{deleting?.keyCount ?? 0} key(s) use it; they'll fall back to the default view.
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
