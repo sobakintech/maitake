@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "packages": {
+    "node": "24",
+    "pnpm": "11"
+  },
+  "steps": {
+    "build": {
+      "commands": [
+        "sh -c 'cd web && pnpm install --frozen-lockfile && pnpm build'",
+        "go build -tags embedui -ldflags=\"-w -s\" -o out ./cmd/maitake"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "./out",
+    "variables": {
+      "MAITAKE_HOST": "0.0.0.0",
+      "MAITAKE_DATA_DIR": "/data"
+    }
+  }
+}
