@@ -124,6 +124,7 @@ type UsageBucket struct {
 }
 
 // UsageBreakdown groups usage by one dimension: "day", "hour", "model", "user", "key", "account" or "provider".
+// For "user", requests made with an admin key are keyed "k<key id>".
 func (s *Store) UsageBreakdown(ctx context.Context, f UsageFilter, by string, tzOffsetMinutes int) ([]UsageBucket, error) {
 	var group string
 	offsetMS := int64(tzOffsetMinutes) * 60_000
@@ -137,7 +138,7 @@ func (s *Store) UsageBreakdown(ctx context.Context, f UsageFilter, by string, tz
 	case "provider":
 		group = "provider"
 	case "user":
-		group = "CAST(COALESCE(user_id, 0) AS TEXT)"
+		group = "CASE WHEN user_id IS NULL THEN 'k' || COALESCE(key_id, 0) ELSE CAST(user_id AS TEXT) END"
 	case "key":
 		group = "CAST(COALESCE(key_id, 0) AS TEXT)"
 	case "account":

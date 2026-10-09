@@ -145,12 +145,14 @@ export type UsageResponse = {
 	byUser: UsageBucket[];
 	byKey: UsageBucket[];
 	byAccount: UsageBucket[];
-	recent: UsageEvent[];
-	names: {
-		user: Record<string, string>;
-		key: Record<string, string>;
-		account: Record<string, string>;
-	};
+	names: UsageNames;
+};
+
+// Labels for ids in usage and audit records. In `user`, admin keys appear as "k<key id>".
+export type UsageNames = {
+	user: Record<string, string>;
+	key: Record<string, string>;
+	account: Record<string, string>;
 };
 
 export type PageSettings = {

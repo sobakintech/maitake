@@ -1,17 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { UsageEvent, UsageRange } from '#lib/api.js';
-	import { compact, duration, integer, shortDateTime } from '#lib/format.js';
+	import type { UsageBucket, UsageRange } from '#lib/api.js';
+	import { compact, duration, integer } from '#lib/format.js';
 	import { fillSeries, type Metric } from '#lib/series.js';
 	import BreakdownTable from '#lib/components/breakdown-table.svelte';
 	import ColumnChart from '#lib/components/column-chart.svelte';
 	import StatTile from '#lib/components/stat-tile.svelte';
-	import PrivateText from '#lib/components/private-text.svelte';
-	import { Badge } from '#lib/components/ui/badge/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
-	import * as Table from '#lib/components/ui/table/index.js';
 	import * as Tabs from '#lib/components/ui/tabs/index.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import type { PageProps } from './$types';
@@ -39,17 +36,29 @@
 	}
 
 	const userValue = $derived(String(data.userId ?? 0));
+	const keyValue = $derived(String(data.keyId ?? 0));
 	const accountValue = $derived(String(data.accountId ?? 0));
 	const userLabel = $derived(data.users.find((u) => u.id === data.userId)?.name ?? 'All users');
+	const keyLabel = $derived(data.keyId ? (keyName(data.keyId) ?? 'Deleted key') : 'All keys');
+	// With a user picked, only their keys make sense to filter by.
+	const keyOptions = $derived(
+		data.keys.filter((k) => !data.userId || k.userId === data.userId || k.id === data.keyId)
+	);
 	const accountLabel = $derived(
 		data.accounts.find((a) => a.id === data.accountId)?.label ?? 'All accounts'
 	);
 	const names = $derived(data.usage.names);
 
-	// Only non-default tiers are worth a badge.
-	function fastTier(e: UsageEvent) {
-		const tier = e.servedTier || e.serviceTier;
-		return tier && !['default', 'standard', 'auto', 'flex'].includes(tier) ? tier : '';
+	function keyName(id: number) {
+		const k = data.keys.find((k) => k.id === id);
+		return k ? `${k.name || k.prefix + '…'} (${k.ownerName})` : undefined;
+	}
+
+	// Admin keys have no user, so they show up on their own as "k<id>".
+	function userHref(r: UsageBucket) {
+		if (r.key.startsWith('k'))
+			return names.key[r.key.slice(1)] ? `/keys/${r.key.slice(1)}` : undefined;
+		return names.user[r.key] ? `/users/${r.key}` : undefined;
 	}
 </script>
 
@@ -76,6 +85,16 @@
 				<Select.Item value="0" label="All users">All users</Select.Item>
 				{#each data.users as u (u.id)}
 					<Select.Item value={String(u.id)} label={u.name}>{u.name}</Select.Item>
+				{/each}
+			</Select.Content>
+		</Select.Root>
+		<Select.Root type="single" value={keyValue} onValueChange={(v) => setParam('keyId', v)}>
+			<Select.Trigger class="w-56"><span class="truncate">{keyLabel}</span></Select.Trigger>
+			<Select.Content>
+				<Select.Item value="0" label="All keys">All keys</Select.Item>
+				{#each keyOptions as k (k.id)}
+					{@const label = `${k.name || k.prefix + '…'} (${k.ownerName})`}
+					<Select.Item value={String(k.id)} {label}>{label}</Select.Item>
 				{/each}
 			</Select.Content>
 		</Select.Root>
@@ -153,14 +172,14 @@
 					><BreakdownTable rows={data.usage.byModel} label="Model" /></Tabs.Content
 				>
 				<Tabs.Content value="user" class="pt-4">
-					<BreakdownTable
-						rows={data.usage.byUser}
-						label="User"
-						href={(r) => (names.user[r.key] ? `/users/${r.key}` : undefined)}
-					/>
+					<BreakdownTable rows={data.usage.byUser} label="User or admin key" href={userHref} />
 				</Tabs.Content>
 				<Tabs.Content value="key" class="pt-4"
-					><BreakdownTable rows={data.usage.byKey} label="Key" /></Tabs.Content
+					><BreakdownTable
+						rows={data.usage.byKey}
+						label="Key"
+						href={(r) => (names.key[r.key] ? `/keys/${r.key}` : undefined)}
+					/></Tabs.Content
 				>
 				<Tabs.Content value="account" class="pt-4">
 					<BreakdownTable rows={data.usage.byAccount} label="Account" />
@@ -169,79 +188,6 @@
 					<BreakdownTable rows={data.usage.byProvider} label="Provider" />
 				</Tabs.Content>
 			</Tabs.Root>
-		</Card.Content>
-	</Card.Root>
-
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Recent requests</Card.Title>
-		</Card.Header>
-		<Card.Content>
-			{#if data.usage.recent.length === 0}
-				<p class="py-6 text-center text-sm text-muted-foreground">No requests in this period.</p>
-			{:else}
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>Time</Table.Head>
-							<Table.Head>User</Table.Head>
-							<Table.Head>Model</Table.Head>
-							<Table.Head>Account</Table.Head>
-							<Table.Head>Status</Table.Head>
-							<Table.Head class="text-right">In</Table.Head>
-							<Table.Head class="text-right">Out</Table.Head>
-							<Table.Head class="text-right">First token</Table.Head>
-							<Table.Head class="text-right">Duration</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each data.usage.recent as e, i (i)}
-							<Table.Row>
-								<Table.Cell class="whitespace-nowrap text-muted-foreground"
-									>{shortDateTime(e.time)}</Table.Cell
-								>
-								<Table.Cell>{names.user[e.userId] ?? '—'}</Table.Cell>
-								<Table.Cell class="font-mono text-xs">
-									{#if e.requestedModel && e.requestedModel !== e.model}
-										<span class="text-muted-foreground" title="Requested {e.requestedModel}"
-											>{e.requestedModel} →</span
-										>
-									{/if}
-									{e.model}
-									{#if fastTier(e)}
-										<Badge
-											variant="secondary"
-											class="ml-1"
-											title="Asked for {e.serviceTier || 'default'}, served as {e.servedTier ||
-												'not reported'}">{fastTier(e)}</Badge
-										>
-									{/if}
-								</Table.Cell>
-								<Table.Cell class="max-w-40 truncate"
-									><PrivateText>{names.account[e.accountId] ?? '—'}</PrivateText></Table.Cell
-								>
-								<Table.Cell>
-									{#if e.status >= 400}
-										<Badge variant="destructive" title={e.error}>{e.status}</Badge>
-									{:else}
-										<Badge variant="outline">{e.status}</Badge>
-									{/if}
-								</Table.Cell>
-								<Table.Cell class="text-right tabular-nums"
-									>{compact(e.inputTokens + e.cacheReadTokens)}</Table.Cell
-								>
-								<Table.Cell class="text-right tabular-nums">{compact(e.outputTokens)}</Table.Cell>
-								<Table.Cell class="text-right text-muted-foreground tabular-nums"
-									>{e.ttftMs ? duration(e.ttftMs) : '—'}</Table.Cell
-								>
-								<Table.Cell class="text-right text-muted-foreground tabular-nums"
-									>{duration(e.durationMs)}</Table.Cell
-								>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
-			{/if}
 		</Card.Content>
 	</Card.Root>
 </div>

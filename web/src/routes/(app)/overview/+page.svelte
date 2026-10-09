@@ -101,8 +101,13 @@
 			<Card.Content>
 				<BreakdownTable
 					rows={data.usage.byUser.slice(0, 8)}
-					label="User"
-					href={(r) => (Number(r.key) > 0 ? `/users/${r.key}` : undefined)}
+					label="User or admin key"
+					href={(r) =>
+						r.key.startsWith('k')
+							? `/keys/${r.key.slice(1)}`
+							: Number(r.key) > 0
+								? `/users/${r.key}`
+								: undefined}
 				/>
 			</Card.Content>
 		</Card.Root>

@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sobakintech/maitake/internal/store"
@@ -52,24 +53,7 @@ func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"range": q.Get("range"), "since": f.Since, "until": until, "totals": totals,
 		"series": series, "seriesBy": seriesBy}
 
-	names := map[string]map[string]string{"user": {"0": "Admin keys"}, "key": {}, "account": {}}
-	if users, err := s.store.ListUsers(ctx); err == nil {
-		for _, u := range users {
-			names["user"][strconv.FormatInt(u.ID, 10)] = u.Name
-		}
-	}
-	if keys, err := s.store.ListAllKeys(ctx); err == nil {
-		for _, k := range keys {
-			label := k.Prefix + "…"
-			if k.Name != "" {
-				label = k.Name
-			}
-			names["key"][strconv.FormatInt(k.ID, 10)] = label + " (" + k.OwnerName + ")"
-		}
-	}
-	for _, a := range s.accounts.List() {
-		names["account"][strconv.FormatInt(a.ID, 10)] = a.Label
-	}
+	names := s.usageNames(r)
 	for _, dim := range []string{"model", "provider", "user", "key", "account"} {
 		buckets, err := s.store.UsageBreakdown(ctx, f, dim, tz)
 		if err != nil {
@@ -82,8 +66,10 @@ func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
 			if m, ok := names[dim]; ok {
 				if n, ok := m[b.Key]; ok {
 					name = n
-				} else if b.Key == "0" {
+				} else if b.Key == "0" || b.Key == "k0" {
 					name = "—"
+				} else if id, ok := strings.CutPrefix(b.Key, "k"); ok {
+					name = "deleted key #" + id
 				} else {
 					name = "deleted #" + b.Key
 				}
@@ -92,18 +78,37 @@ func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
 		}
 		resp["by"+capitalize(dim)] = out
 	}
-	limit, _ := strconv.Atoi(q.Get("recent"))
-	if limit <= 0 || limit > 500 {
-		limit = 50
-	}
-	recent, err := s.store.RecentUsage(ctx, f, limit)
-	if err != nil {
-		writeStoreError(w, r, err)
-		return
-	}
-	resp["recent"] = recent
 	resp["names"] = names
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// usageNames labels the ids that show up in usage and audit records. Requests made with admin
+// keys have no user, so in the user dimension each such key stands on its own as "k<id>".
+func (s *Server) usageNames(r *http.Request) map[string]map[string]string {
+	ctx := r.Context()
+	names := map[string]map[string]string{"user": {}, "key": {}, "account": {}}
+	if users, err := s.store.ListUsers(ctx); err == nil {
+		for _, u := range users {
+			names["user"][strconv.FormatInt(u.ID, 10)] = u.Name
+		}
+	}
+	if keys, err := s.store.ListAllKeys(ctx); err == nil {
+		for _, k := range keys {
+			label := k.Prefix + "…"
+			if k.Name != "" {
+				label = k.Name
+			}
+			id := strconv.FormatInt(k.ID, 10)
+			names["key"][id] = label + " (" + k.OwnerName + ")"
+			if k.OwnerType == "admin" {
+				names["user"]["k"+id] = label + " (" + k.OwnerName + ", admin)"
+			}
+		}
+	}
+	for _, a := range s.accounts.List() {
+		names["account"][strconv.FormatInt(a.ID, 10)] = a.Label
+	}
+	return names
 }
 
 func capitalize(s string) string {
