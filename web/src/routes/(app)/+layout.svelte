@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { api } from '#lib/api.js';
+	import logo from '#lib/assets/logo.png';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
@@ -49,11 +50,7 @@
 					<Sidebar.MenuButton size="lg">
 						{#snippet child({ props })}
 							<a href="/overview" {...props}>
-								<div
-									class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
-								>
-									m
-								</div>
+								<img src={logo} alt="" class="size-8 shrink-0" />
 								<span class="font-semibold">maitake</span>
 							</a>
 						{/snippet}
