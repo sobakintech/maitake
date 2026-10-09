@@ -155,6 +155,63 @@ export type UsageNames = {
 	account: Record<string, string>;
 };
 
+export type AuditSettings = {
+	enabled: boolean;
+	record: 'all' | 'errors' | 'success';
+	samplePercent: number;
+	models: string[];
+	request: boolean;
+	upstreamRequest: boolean;
+	upstreamResponse: boolean;
+	response: boolean;
+	headers: boolean;
+	redactHeaders: string[];
+	maxBodyKB: number;
+	retentionDays: number;
+	maxEntries: number;
+	maxStorageMB: number;
+};
+
+export type AuditAttempt = {
+	accountId: number;
+	status: number;
+	error?: string;
+	durationMs: number;
+};
+
+export type AuditEntry = UsageEvent & {
+	id: number;
+	clientIp: string;
+	userAgent: string;
+	attempts: AuditAttempt[];
+	payloadSize: number;
+};
+
+export type AuditBody = { text: string; size: number; truncated: boolean };
+
+export type AuditPayload = {
+	method?: string;
+	query?: string;
+	requestHeaders?: Record<string, string[]>;
+	responseHeaders?: Record<string, string[]>;
+	upstreamStatus?: number;
+	upstreamResponseHeaders?: Record<string, string[]>;
+	request?: AuditBody;
+	upstreamRequest?: AuditBody;
+	upstreamResponse?: AuditBody;
+	response?: AuditBody;
+};
+
+export type AuditFilter = {
+	range?: UsageRange;
+	userId?: number;
+	keyId?: number;
+	accountId?: number;
+	model?: string;
+	status?: string;
+	q?: string;
+};
+
 export type PageSettings = {
 	enabled: boolean;
 	access: 'key' | 'public';
@@ -172,6 +229,7 @@ export type Settings = {
 	routing: RoutingSettings;
 	keys: { storeCopies: boolean };
 	claude: CloakSettings;
+	audit: AuditSettings;
 };
 
 export type PoolSettings = {

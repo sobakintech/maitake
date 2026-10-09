@@ -159,6 +159,7 @@ func (h *Handler) execute(w http.ResponseWriter, r *http.Request, c *call) (int,
 		}
 		tried[lease.ID] = true
 		lastAccount = lease.ID
+		attemptStart := time.Now()
 
 		src, dropThinking := h.sanitizeHistory(c, lease.ID, stripAll)
 		body, betas, err := h.prepare(c, lease, src, dropThinking)
@@ -167,6 +168,7 @@ func (h *Handler) execute(w http.ResponseWriter, r *http.Request, c *call) (int,
 			writeError(w, c.format, e)
 			return e.status, translate.Usage{}, lease.ID, e.message
 		}
+		c.audit.UpstreamRequest(body)
 
 		resp, err := h.send(ctx, c, lease, body, betas)
 		if err == nil && resp.StatusCode == http.StatusUnauthorized {
@@ -174,6 +176,7 @@ func (h *Handler) execute(w http.ResponseWriter, r *http.Request, c *call) (int,
 			if creds, rerr := h.accounts.Credentials(ctx, lease.ID, true); rerr == nil {
 				lease.Creds = creds
 				if body, betas, err = h.prepare(c, lease, src, dropThinking); err == nil {
+					c.audit.UpstreamRequest(body)
 					resp, err = h.send(ctx, c, lease, body, betas)
 				}
 			} else {
@@ -182,13 +185,16 @@ func (h *Handler) execute(w http.ResponseWriter, r *http.Request, c *call) (int,
 		}
 		if err != nil {
 			if ctx.Err() != nil {
+				c.audit.Attempt(lease.ID, 499, "client disconnected", attemptStart)
 				return 499, translate.Usage{}, lease.ID, "client disconnected"
 			}
+			c.audit.Attempt(lease.ID, 0, err.Error(), attemptStart)
 			h.accounts.MarkError(ctx, lease.ID, time.Now().Add(30*time.Second), err.Error())
 			last = newError(http.StatusBadGateway, "upstream request failed: "+err.Error())
 			continue
 		}
 		h.observe(ctx, c, lease, resp)
+		c.audit.Upstream(resp)
 
 		var f failure
 		if resp.StatusCode == http.StatusOK {
@@ -202,6 +208,7 @@ func (h *Handler) execute(w http.ResponseWriter, r *http.Request, c *call) (int,
 				if res.status < 400 {
 					h.accounts.MarkSuccess(ctx, lease.ID)
 				}
+				c.audit.Attempt(lease.ID, res.status, res.msg, attemptStart)
 				return res.status, res.usage, lease.ID, res.msg
 			}
 			f = *res.failure
@@ -212,6 +219,7 @@ func (h *Handler) execute(w http.ResponseWriter, r *http.Request, c *call) (int,
 		}
 
 		msg := upstreamMessage(f.body)
+		c.audit.Attempt(lease.ID, f.status, msg, attemptStart)
 		d := h.decide(c, f, s)
 		if d.signature {
 			if !signatureRetried {

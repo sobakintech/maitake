@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/sobakintech/maitake/internal/accounts"
+	"github.com/sobakintech/maitake/internal/audit"
 	"github.com/sobakintech/maitake/internal/provider/claude"
 	"github.com/sobakintech/maitake/internal/quota"
 	"github.com/sobakintech/maitake/internal/resets"
@@ -23,6 +24,7 @@ type Settings struct {
 	Routing            routing.Settings     `json:"routing"`
 	Keys               KeySettings          `json:"keys"`
 	Claude             claude.CloakSettings `json:"claude"`
+	Audit              audit.Settings       `json:"audit"`
 }
 
 type KeySettings struct {
@@ -39,6 +41,7 @@ func Defaults() Settings {
 		Routing:            routing.DefaultSettings(),
 		Keys:               KeySettings{StoreCopies: true},
 		Claude:             claude.DefaultCloak(),
+		Audit:              audit.DefaultSettings(),
 	}
 }
 
@@ -48,6 +51,7 @@ func (s *Settings) Normalize() {
 	s.CodexResets.Normalize()
 	s.Routing.Normalize()
 	s.Claude.Normalize()
+	s.Audit.Normalize()
 	if s.UsageRetentionDays < 0 {
 		s.UsageRetentionDays = 0
 	}

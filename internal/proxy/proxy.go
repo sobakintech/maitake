@@ -20,6 +20,7 @@ import (
 	"github.com/tidwall/sjson"
 
 	"github.com/sobakintech/maitake/internal/accounts"
+	"github.com/sobakintech/maitake/internal/audit"
 	"github.com/sobakintech/maitake/internal/models"
 	"github.com/sobakintech/maitake/internal/provider/claude"
 	"github.com/sobakintech/maitake/internal/provider/codex"
@@ -38,17 +39,27 @@ type Handler struct {
 	claude   *claude.Provider
 	codex    *codex.Provider
 	usage    *usage.Recorder
+	audit    *audit.Recorder
 	settings func() accounts.Settings
 	routing  func() routing.Settings
 	rpm      *rpmLimiter
 	sigs     *sigRegistry
 	catalog  codexCatalog
+	// ClientIP resolves the caller's address for the audit log; RemoteAddr when unset.
+	ClientIP func(*http.Request) string
 }
 
 func New(st *store.Store, mgr *accounts.Manager, cl *claude.Provider, cx *codex.Provider, rec *usage.Recorder,
-	settings func() accounts.Settings, routingSettings func() routing.Settings) *Handler {
-	return &Handler{store: st, accounts: mgr, claude: cl, codex: cx, usage: rec, settings: settings,
+	auditRec *audit.Recorder, settings func() accounts.Settings, routingSettings func() routing.Settings) *Handler {
+	return &Handler{store: st, accounts: mgr, claude: cl, codex: cx, usage: rec, audit: auditRec, settings: settings,
 		routing: routingSettings, rpm: newRPMLimiter(), sigs: newSigRegistry()}
+}
+
+func (h *Handler) clientIP(r *http.Request) string {
+	if h.ClientIP != nil {
+		return h.ClientIP(r)
+	}
+	return r.RemoteAddr
 }
 
 func (h *Handler) mountAPI(r chi.Router, openRouter bool) {
@@ -152,6 +163,7 @@ type call struct {
 	display  string        // model name to record instead of model (the image model for /v1/images)
 	// respond replaces the normal response for a finished non-streamed Codex call (images).
 	respond func(w http.ResponseWriter, response []byte, u translate.Usage) relayResult
+	audit   *audit.Capture // nil unless this request is being recorded
 }
 
 type callKind int
@@ -289,6 +301,10 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request, c *call, openRo
 		}
 	}
 	c.owner, c.names, c.headers, c.endpoint = owner, translate.NewToolNames(), r.Header, r.URL.Path
+	if c.audit = h.audit.Begin(r, owner.Key.AuditMode); c.audit != nil {
+		c.audit.Request(body)
+		w = c.audit.Writer(w)
+	}
 	if c.model == "" {
 		c.model = gjson.GetBytes(body, "model").String()
 	}
@@ -349,6 +365,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request, c *call, openRo
 		ev.DurationMS = time.Since(start).Milliseconds()
 		ev.TTFTMS, ev.ServedTier = c.ttft.Milliseconds(), c.served
 		h.usage.Record(ev)
+		h.audit.Finish(c.audit, ev, h.clientIP(r))
 	}
 
 	fail := func(e *apiError) {

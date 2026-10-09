@@ -21,6 +21,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/sobakintech/maitake/internal/accounts"
+	"github.com/sobakintech/maitake/internal/audit"
 	"github.com/sobakintech/maitake/internal/provider"
 	"github.com/sobakintech/maitake/internal/provider/claude"
 	"github.com/sobakintech/maitake/internal/provider/codex"
@@ -191,6 +192,7 @@ type setupOpts struct {
 	routing  func(*routing.Settings)
 	pool     func(*accounts.Settings)
 	cloak    *claude.CloakSettings
+	audit    func(*audit.Settings)
 }
 
 func setup(t *testing.T, allowed []string) *env {
@@ -259,8 +261,16 @@ func setupWith(t *testing.T, o setupOpts) *env {
 	}
 
 	rec := usage.NewRecorder(st)
+	auditRec := audit.NewRecorder(st, func() audit.Settings {
+		s := audit.DefaultSettings()
+		if o.audit != nil {
+			o.audit(&s)
+		}
+		return s
+	})
 	recCtx, cancel := context.WithCancel(context.Background())
 	go rec.Run(recCtx)
+	go auditRec.Run(recCtx)
 
 	r := chi.NewRouter()
 	rs := func() routing.Settings {
@@ -272,13 +282,13 @@ func setupWith(t *testing.T, o setupOpts) *env {
 		s.Normalize()
 		return s
 	}
-	h := New(st, mgr, cl, cx, rec, pool, rs)
+	h := New(st, mgr, cl, cx, rec, auditRec, pool, rs)
 	h.Mount(r)
 	r.Route("/api", h.MountOpenRouter)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return &env{t: t, base: srv.URL, key: key, store: st, mgr: mgr, upstream: up, accts: accts,
-		stopRec: func() { cancel(); rec.Wait() }}
+		stopRec: func() { cancel(); rec.Wait(); auditRec.Wait() }}
 }
 
 func (e *env) post(path, body string) (int, string, http.Header) {
@@ -408,6 +418,74 @@ func TestUsageRecorded(t *testing.T) {
 	}
 	if totals.Requests != 2 || totals.OutputTokens != 8 || totals.CacheReadTokens != 4 {
 		t.Fatalf("unexpected totals: %+v", totals)
+	}
+}
+
+func TestAuditLog(t *testing.T) {
+	e := setupWith(t, setupOpts{audit: func(s *audit.Settings) {
+		s.Enabled, s.UpstreamRequest, s.UpstreamResponse = true, true, true
+		s.RedactHeaders = []string{"X-Secret"}
+	}})
+	req, _ := http.NewRequest("POST", e.base+"/v1/messages?key=leak", strings.NewReader(
+		`{"model":"claude-opus-5","max_tokens":100,"stream":true,"messages":[{"role":"user","content":"audit me"}]}`))
+	req.Header.Set("Authorization", "Bearer "+e.key)
+	req.Header.Set("X-Secret", "hidden")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.ReadAll(resp.Body)
+	resp.Body.Close()
+	e.stopRec()
+
+	ctx := context.Background()
+	list, err := e.store.ListAudit(ctx, store.AuditFilter{}, 10)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("expected one entry, got %d (%v)", len(list), err)
+	}
+	if !strings.Contains(string(list[0].Attempts), `"status":429`) || !strings.Contains(string(list[0].Attempts), `"status":200`) {
+		t.Errorf("attempts not recorded: %s", list[0].Attempts)
+	}
+	entry, err := e.store.GetAudit(ctx, list[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := audit.Decode(entry.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Request == nil || !strings.Contains(p.Request.Text, "audit me") {
+		t.Errorf("request body missing: %+v", p.Request)
+	}
+	if p.UpstreamRequest == nil || !strings.Contains(p.UpstreamRequest.Text, "Claude Code") {
+		t.Errorf("upstream request missing: %+v", p.UpstreamRequest)
+	}
+	if p.UpstreamResponse == nil || !strings.Contains(p.UpstreamResponse.Text, "message_start") {
+		t.Errorf("upstream response missing: %+v", p.UpstreamResponse)
+	}
+	if p.Response == nil || !strings.Contains(p.Response.Text, `"text":"Hello"`) {
+		t.Errorf("client response missing: %+v", p.Response)
+	}
+	for _, h := range []string{"Authorization", "X-Secret"} {
+		if v := p.RequestHeaders[h]; len(v) != 1 || v[0] != "[redacted]" {
+			t.Errorf("%s not redacted: %v", h, v)
+		}
+	}
+	if strings.Contains(p.Query, "leak") {
+		t.Errorf("query key not redacted: %s", p.Query)
+	}
+}
+
+func TestAuditKeyOverride(t *testing.T) {
+	e := setup(t, nil)
+	keys, _ := e.store.ListAllKeys(context.Background())
+	on := "on"
+	e.store.UpdateKey(context.Background(), keys[0].ID, store.KeyPatch{AuditMode: &on})
+	e.post("/v1/chat/completions", `{"model":"gpt-5.5","messages":[{"role":"user","content":"hello"}]}`)
+	e.stopRec()
+	list, _ := e.store.ListAudit(context.Background(), store.AuditFilter{KeyID: keys[0].ID}, 10)
+	if len(list) != 1 {
+		t.Fatalf("key set to on should be recorded with the log disabled, got %d", len(list))
 	}
 }
 

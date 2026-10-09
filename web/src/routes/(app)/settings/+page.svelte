@@ -16,6 +16,8 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
+	import LineListInput from '#lib/components/line-list-input.svelte';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import type { PageProps } from './$types';
@@ -31,6 +33,7 @@
 		{ id: 'pool', label: 'Account pool' },
 		{ id: 'claude', label: 'Claude' },
 		{ id: 'usage', label: 'Usage history' },
+		{ id: 'audit', label: 'Audit log' },
 		{ id: 'keys', label: 'API keys' },
 		{ id: 'about', label: 'About' }
 	];
@@ -63,6 +66,24 @@
 			.filter(Boolean);
 	}
 	let clearOpen = $state(false);
+	let clearAuditOpen = $state(false);
+	const modelPatterns = 'claude-*\nopenai/gpt-5*';
+
+	const recordLabels = {
+		all: 'Every request',
+		errors: 'Only failed requests',
+		success: 'Only successful requests'
+	} as const;
+
+	async function clearAudit() {
+		clearAuditOpen = false;
+		try {
+			const { deleted } = await admin.clearAudit({});
+			toast.success(`Deleted ${deleted} ${deleted === 1 ? 'entry' : 'entries'}`);
+		} catch (err) {
+			toast.error(errorMessage(err));
+		}
+	}
 
 	async function clearCopies() {
 		clearOpen = false;
@@ -94,6 +115,14 @@
 				r.cooldownSeconds = Number(r.cooldownSeconds) || 0;
 			}
 			next.usageRetentionDays = Number(next.usageRetentionDays);
+			for (const k of [
+				'samplePercent',
+				'maxBodyKB',
+				'retentionDays',
+				'maxEntries',
+				'maxStorageMB'
+			] as const)
+				next.audit[k] = Number(next.audit[k]) || 0;
 			const { settings } = await admin.saveSettings(next);
 			draft.value = structuredClone(settings);
 			draft.commit();
@@ -337,6 +366,211 @@
 				</Card.Root>
 			</Tabs.Content>
 
+			<Tabs.Content value="audit" class="pt-4">
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Audit log</Card.Title>
+						<Card.Description>
+							Keeps each request in full, headers and bodies included, for review on the
+							<a href="/audit" class="underline underline-offset-4">Audit log</a> page. Bodies hold whatever
+							clients send, so only turn this on when you need it.
+						</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<Field.Group>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="audit-on">Record requests</Field.Label>
+									<Field.Description>
+										Applies to every key that doesn't set its own. A key can be set to always or
+										never be recorded on its page, which works even while this is off.
+									</Field.Description>
+								</Field.Content>
+								<Switch id="audit-on" bind:checked={form.audit.enabled} />
+							</Field.Field>
+							<Field.Field>
+								<Field.Label>Which requests</Field.Label>
+								<Select.Root type="single" bind:value={form.audit.record}>
+									<Select.Trigger class="w-64">{recordLabels[form.audit.record]}</Select.Trigger>
+									<Select.Content>
+										{#each Object.entries(recordLabels) as [v, label] (v)}
+											<Select.Item value={v} {label}>{label}</Select.Item>
+										{/each}
+									</Select.Content>
+								</Select.Root>
+								<Field.Description>
+									Failed means anything that ended with a status of 400 or more, including clients
+									that hung up early.
+								</Field.Description>
+							</Field.Field>
+							<Field.Field>
+								<Field.Label for="audit-sample">Share of requests to record (%)</Field.Label>
+								<Input
+									id="audit-sample"
+									type="number"
+									min={1}
+									max={100}
+									class="w-32"
+									bind:value={form.audit.samplePercent}
+								/>
+								<Field.Description>Picked at random; 100 records all of them.</Field.Description>
+							</Field.Field>
+							<Field.Field>
+								<Field.Label for="audit-models">Only these models</Field.Label>
+								<LineListInput
+									id="audit-models"
+									bind:value={form.audit.models}
+									placeholder={modelPatterns}
+								/>
+								<Field.Description>
+									Patterns like a key's allowed models, matched against the model asked for and the
+									one that served it. Empty records every model.
+								</Field.Description>
+							</Field.Field>
+						</Field.Group>
+					</Card.Content>
+				</Card.Root>
+				<Card.Root class="mt-6">
+					<Card.Header>
+						<Card.Title>What to keep</Card.Title>
+						<Card.Description>
+							Times, tokens, the key, the account and every attempt are always kept.
+						</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<Field.Group>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="audit-req">Request from the client</Field.Label>
+									<Field.Description>The body exactly as the client sent it.</Field.Description>
+								</Field.Content>
+								<Switch id="audit-req" bind:checked={form.audit.request} />
+							</Field.Field>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="audit-upreq">Request to the provider</Field.Label>
+									<Field.Description>
+										After translation, mapping, payload rules and the Claude Code disguise: what the
+										provider actually got. From the last account tried.
+									</Field.Description>
+								</Field.Content>
+								<Switch id="audit-upreq" bind:checked={form.audit.upstreamRequest} />
+							</Field.Field>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="audit-upresp">Response from the provider</Field.Label>
+									<Field.Description>
+										The raw stream or error before maitake converts it. From the last account tried.
+									</Field.Description>
+								</Field.Content>
+								<Switch id="audit-upresp" bind:checked={form.audit.upstreamResponse} />
+							</Field.Field>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="audit-resp">Response to the client</Field.Label>
+									<Field.Description
+										>What the client received, streamed events included.</Field.Description
+									>
+								</Field.Content>
+								<Switch id="audit-resp" bind:checked={form.audit.response} />
+							</Field.Field>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="audit-headers">Headers</Field.Label>
+									<Field.Description>
+										The client's request headers, the headers sent back, and the provider's response
+										headers (rate limit details live there).
+									</Field.Description>
+								</Field.Content>
+								<Switch id="audit-headers" bind:checked={form.audit.headers} />
+							</Field.Field>
+							<Field.Field>
+								<Field.Label for="audit-redact">Also hide these headers</Field.Label>
+								<LineListInput
+									id="audit-redact"
+									bind:value={form.audit.redactHeaders}
+									placeholder="X-Forwarded-For"
+								/>
+								<Field.Description>
+									Authorization, API key and cookie headers are always hidden, as is a key passed in
+									the URL.
+								</Field.Description>
+							</Field.Field>
+							<Field.Field>
+								<Field.Label for="audit-max-body"
+									>Keep at most this much of each body (KB)</Field.Label
+								>
+								<Input
+									id="audit-max-body"
+									type="number"
+									min={0}
+									class="w-32"
+									bind:value={form.audit.maxBodyKB}
+								/>
+								<Field.Description>
+									Longer bodies are cut off and marked as such. 0 keeps them whole. Conversations
+									resend their whole history every turn, so this adds up.
+								</Field.Description>
+							</Field.Field>
+						</Field.Group>
+					</Card.Content>
+				</Card.Root>
+				<Card.Root class="mt-6">
+					<Card.Header>
+						<Card.Title>Retention</Card.Title>
+						<Card.Description>
+							Checked hourly; the oldest entries go first. Entries are stored compressed.
+						</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<Field.Group>
+							<Field.Field>
+								<Field.Label for="audit-days">Keep entries for (days)</Field.Label>
+								<Input
+									id="audit-days"
+									type="number"
+									min={0}
+									class="w-32"
+									bind:value={form.audit.retentionDays}
+								/>
+								<Field.Description>0 keeps them until another limit applies.</Field.Description>
+							</Field.Field>
+							<Field.Field>
+								<Field.Label for="audit-max-entries">Keep at most (entries)</Field.Label>
+								<Input
+									id="audit-max-entries"
+									type="number"
+									min={0}
+									class="w-32"
+									bind:value={form.audit.maxEntries}
+								/>
+								<Field.Description>0 means no limit.</Field.Description>
+							</Field.Field>
+							<Field.Field>
+								<Field.Label for="audit-max-mb">Use at most (MB of storage)</Field.Label>
+								<Input
+									id="audit-max-mb"
+									type="number"
+									min={0}
+									class="w-32"
+									bind:value={form.audit.maxStorageMB}
+								/>
+								<Field.Description>Compressed size. 0 means no limit.</Field.Description>
+							</Field.Field>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label>Delete all entries</Field.Label>
+									<Field.Description>Empties the audit log now.</Field.Description>
+								</Field.Content>
+								<Button variant="destructive" type="button" onclick={() => (clearAuditOpen = true)}>
+									Delete entries
+								</Button>
+							</Field.Field>
+						</Field.Group>
+					</Card.Content>
+				</Card.Root>
+			</Tabs.Content>
+
 			<Tabs.Content value="keys" class="pt-4">
 				<Card.Root>
 					<Card.Header>
@@ -393,6 +627,23 @@
 
 	<UnsavedBar dirty={draft.dirty} {saving} onSave={save} onReset={() => draft.reset()} />
 </div>
+
+<AlertDialog.Root bind:open={clearAuditOpen}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Delete every audit log entry?</AlertDialog.Title>
+			<AlertDialog.Description>
+				All recorded requests are removed. Usage history isn't affected.
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+			<AlertDialog.Action variant="destructive" onclick={clearAudit}
+				>Delete entries</AlertDialog.Action
+			>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>
 
 <AlertDialog.Root bind:open={clearOpen}>
 	<AlertDialog.Content>

@@ -192,6 +192,10 @@ func (s *Server) updateKey(w http.ResponseWriter, r *http.Request) {
 		raw := json.RawMessage(cfg)
 		body.DisplayConfig = &raw
 	}
+	if body.AuditMode != nil && *body.AuditMode != "" && *body.AuditMode != "on" && *body.AuditMode != "off" {
+		writeError(w, http.StatusBadRequest, `audit mode must be "", "on" or "off"`)
+		return
+	}
 	if body.ExpiresAt.Value != nil && !body.ExpiresAt.Value.After(time.Now()) {
 		writeError(w, http.StatusBadRequest, "expiry must be in the future")
 		return

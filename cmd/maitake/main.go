@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/sobakintech/maitake/internal/accounts"
+	"github.com/sobakintech/maitake/internal/audit"
 	"github.com/sobakintech/maitake/internal/config"
 	"github.com/sobakintech/maitake/internal/provider/claude"
 	"github.com/sobakintech/maitake/internal/provider/codex"
@@ -124,11 +125,13 @@ func run(configPath string) error {
 		return err
 	}
 	recorder := usage.NewRecorder(st)
+	auditLog := audit.NewRecorder(st, func() audit.Settings { return sets.Get().Audit })
 	poller := resets.NewPoller(client, func() resets.Settings { return sets.Get().CodexResets })
 
 	bg, cancelBG := context.WithCancel(context.Background())
 	defer cancelBG()
 	go recorder.Run(bg)
+	go auditLog.Run(bg)
 	go mgr.Run(ctx)
 	go poller.Run(ctx)
 	go every(ctx, time.Hour, func() {
@@ -140,6 +143,9 @@ func run(configPath string) error {
 				slog.Error("prune usage", "err", err)
 			}
 		}
+		if err := auditLog.Prune(ctx); err != nil {
+			slog.Error("prune audit log", "err", err)
+		}
 	})
 
 	handler := server.New(server.Deps{
@@ -149,7 +155,7 @@ func run(configPath string) error {
 		Accounts: mgr,
 		Claude:   claudeProvider,
 		Codex:    codexProvider,
-		Proxy: proxy.New(st, mgr, claudeProvider, codexProvider, recorder,
+		Proxy: proxy.New(st, mgr, claudeProvider, codexProvider, recorder, auditLog,
 			func() accounts.Settings { return sets.Get().Pool }, func() routing.Settings { return sets.Get().Routing }),
 		Resets:     poller,
 		Sealer:     sealer,
@@ -181,5 +187,6 @@ func run(configPath string) error {
 	err = srv.Shutdown(shutdownCtx)
 	cancelBG()
 	recorder.Wait()
+	auditLog.Wait()
 	return err
 }

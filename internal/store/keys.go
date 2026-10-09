@@ -31,6 +31,8 @@ type APIKey struct {
 	ModelRules json.RawMessage `json:"modelRules"`
 	// Copyable is true when an encrypted copy of the full key is stored.
 	Copyable bool `json:"copyable"`
+	// AuditMode overrides the global audit log setting: "" follows it, "on" or "off" force it.
+	AuditMode string `json:"auditMode"`
 }
 
 // KeyPatch updates only the non-nil fields. DisplayProfileID 0 resets the key to the default profile.
@@ -43,6 +45,7 @@ type KeyPatch struct {
 	// DisplayConfig sets the key's own view; JSON null removes it.
 	DisplayConfig *json.RawMessage `json:"displayConfig"`
 	ModelRules    *json.RawMessage `json:"modelRules"`
+	AuditMode     *string          `json:"auditMode"`
 	// ExpiresAt: absent leaves the expiry alone, null removes it, a time sets it.
 	ExpiresAt OptionalTime `json:"expiresAt"`
 }
@@ -82,7 +85,7 @@ type OwnedKey struct {
 }
 
 const keyColumns = `k.id, k.user_id, k.admin_id, k.name, k.prefix, k.disabled, k.created_at, k.expires_at, k.last_used_at,
-	k.allowed_models, k.rpm_limit, k.display_profile_id, k.model_rules, k.secret_enc IS NOT NULL, k.display_config`
+	k.allowed_models, k.rpm_limit, k.display_profile_id, k.model_rules, k.secret_enc IS NOT NULL, k.display_config, k.audit_mode`
 
 func scanKey(sc interface{ Scan(...any) error }, extra ...any) (*APIKey, error) {
 	var k APIKey
@@ -90,7 +93,7 @@ func scanKey(sc interface{ Scan(...any) error }, extra ...any) (*APIKey, error) 
 	var expires, lastUsed, profile, userID, adminID sql.NullInt64
 	var allowed, rules, display string
 	dest := append([]any{&k.ID, &userID, &adminID, &k.Name, &k.Prefix, &k.Disabled, &created, &expires, &lastUsed,
-		&allowed, &k.RPMLimit, &profile, &rules, &k.Copyable, &display}, extra...)
+		&allowed, &k.RPMLimit, &profile, &rules, &k.Copyable, &display, &k.AuditMode}, extra...)
 	if err := sc.Scan(dest...); err != nil {
 		return nil, err
 	}
@@ -232,10 +235,11 @@ func (s *Store) UpdateKey(ctx context.Context, id int64, p KeyPatch) (*APIKey, e
 			rpm_limit = COALESCE(?, rpm_limit),
 			model_rules = COALESCE(?, model_rules),
 			display_config = COALESCE(?, display_config),
+			audit_mode = COALESCE(?, audit_mode),
 			display_profile_id = CASE WHEN ? THEN ? ELSE display_profile_id END,
 			expires_at = CASE WHEN ? THEN ? ELSE expires_at END
 		 WHERE id = ?`,
-		p.Name, p.Disabled, allowed, p.RPMLimit, rules, display, setProfile, profile, p.ExpiresAt.Set, nullUnix(p.ExpiresAt.Value), id))
+		p.Name, p.Disabled, allowed, p.RPMLimit, rules, display, p.AuditMode, setProfile, profile, p.ExpiresAt.Set, nullUnix(p.ExpiresAt.Value), id))
 	if err != nil {
 		return nil, err
 	}

@@ -35,6 +35,7 @@
 		displayProfileId: string;
 		rules: MappingRule[];
 		ignoreGlobal: boolean;
+		auditMode: 'inherit' | 'on' | 'off';
 	};
 
 	function toForm(): Form {
@@ -46,7 +47,8 @@
 			rpmLimit: k.rpmLimit,
 			displayProfileId: k.displayConfig ? 'custom' : String(k.displayProfileId ?? 0),
 			rules: (k.modelRules?.rules ?? []).map((r) => ({ ...r, formats: r.formats ?? [] })),
-			ignoreGlobal: k.modelRules?.ignoreGlobal ?? false
+			ignoreGlobal: k.modelRules?.ignoreGlobal ?? false,
+			auditMode: k.auditMode || 'inherit'
 		};
 	}
 
@@ -89,6 +91,11 @@
 				: (data.profiles.find((p) => String(p.id) === form.displayProfileId)?.name ??
 					'No quota view')
 	);
+	const auditLabels = $derived({
+		inherit: `Follow the global setting (${data.auditEnabled ? 'on' : 'off'})`,
+		on: 'Always record',
+		off: 'Never record'
+	});
 	const keyRules = $derived<KeyRules>({ rules: form.rules, ignoreGlobal: form.ignoreGlobal });
 
 	async function save() {
@@ -111,6 +118,7 @@
 						}
 					: { displayProfileId: Number(f.displayProfileId), displayConfig: null }),
 				modelRules: { rules: f.rules, ignoreGlobal: f.ignoreGlobal },
+				auditMode: f.auditMode === 'inherit' ? '' : f.auditMode,
 				...(f.expiresAt !== data.key.expiresAt ? { expiresAt: f.expiresAt } : {})
 			});
 			draft.commit();
@@ -293,6 +301,31 @@
 					</Field.Description>
 				</Field.Field>
 			</Field.Group>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Audit log</Card.Title>
+			<Card.Description>
+				Whether this key's requests are kept in full. What's kept is set in
+				<a href="/settings?tab=audit" class="underline underline-offset-4">Settings</a>.
+			</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<div class="flex flex-wrap items-center gap-2">
+				<Select.Root type="single" bind:value={form.auditMode}>
+					<Select.Trigger class="w-72">{auditLabels[form.auditMode]}</Select.Trigger>
+					<Select.Content>
+						{#each Object.entries(auditLabels) as [v, label] (v)}
+							<Select.Item value={v} {label}>{label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Button variant="ghost" size="sm" href="/audit?keyId={data.key.id}"
+					>View its requests</Button
+				>
+			</div>
 		</Card.Content>
 	</Card.Root>
 

@@ -69,6 +69,7 @@ func New(d Deps) http.Handler {
 	})
 
 	if d.Proxy != nil {
+		d.Proxy.ClientIP = func(r *http.Request) string { return s.clientAddr(r).String() }
 		d.Proxy.Mount(r)
 	}
 
@@ -119,6 +120,10 @@ func New(d Deps) http.Handler {
 			r.Post("/accounts/{id}/redeem", s.redeemAccount)
 
 			r.Get("/usage", s.usage)
+			r.Get("/audit", s.listAudit)
+			r.Delete("/audit", s.clearAudit)
+			r.Get("/audit/{id}", s.getAudit)
+			r.Delete("/audit/{id}", s.deleteAudit)
 
 			r.Get("/settings", s.getSettings)
 			r.Put("/settings", s.putSettings)

@@ -1,5 +1,9 @@
 import type {
 	ApiFormat,
+	AuditEntry,
+	AuditFilter,
+	AuditPayload,
+	UsageNames,
 	CatalogModel,
 	KeyRules,
 	Route,
@@ -49,6 +53,8 @@ export type ApiKey = {
 	displayConfig: ProfileConfig | null;
 	modelRules: KeyRules | null;
 	copyable: boolean;
+	// Overrides the global audit log switch for this key.
+	auditMode: '' | 'on' | 'off';
 };
 
 export class ApiError extends Error {
@@ -106,7 +112,16 @@ export const api = {
 	updateKey: (
 		id: number,
 		patch: Partial<
-			Pick<ApiKey, 'name' | 'disabled' | 'allowedModels' | 'rpmLimit' | 'expiresAt' | 'modelRules'>
+			Pick<
+				ApiKey,
+				| 'name'
+				| 'disabled'
+				| 'allowedModels'
+				| 'rpmLimit'
+				| 'expiresAt'
+				| 'modelRules'
+				| 'auditMode'
+			>
 		> & {
 			displayProfileId?: number;
 			displayConfig?: ProfileConfig | null;
@@ -207,6 +222,24 @@ export const admin = {
 		return request<UsageResponse>('GET', `/admin/usage?${q}`, undefined, f);
 	},
 
+	audit: (filter: AuditFilter & { before?: number; limit?: number }, f?: typeof fetch) =>
+		request<{
+			entries: AuditEntry[];
+			next: number;
+			stats: { entries: number; bytes: number };
+			names: UsageNames;
+		}>('GET', `/admin/audit?${auditQuery(filter)}`, undefined, f),
+	auditEntry: (id: number, f?: typeof fetch) =>
+		request<{ entry: AuditEntry; payload: AuditPayload; names: UsageNames }>(
+			'GET',
+			`/admin/audit/${id}`,
+			undefined,
+			f
+		),
+	deleteAuditEntry: (id: number) => request<void>('DELETE', `/admin/audit/${id}`),
+	clearAudit: (filter: AuditFilter) =>
+		request<{ deleted: number }>('DELETE', `/admin/audit?${auditQuery(filter)}`),
+
 	settings: (f?: typeof fetch) =>
 		request<{ settings: Settings; outboundProxy: boolean }>('GET', '/admin/settings', undefined, f),
 	saveSettings: (settings: Settings) =>
@@ -229,6 +262,12 @@ export const admin = {
 		request<{ codexResets: CodexResetsSnapshot }>('GET', '/admin/codex-resets', undefined, f),
 	refreshCodexResets: () => request<void>('POST', '/admin/codex-resets/refresh')
 };
+
+function auditQuery(filter: Record<string, string | number | undefined>): URLSearchParams {
+	const q = new URLSearchParams();
+	for (const [k, v] of Object.entries(filter)) if (v) q.set(k, String(v));
+	return q;
+}
 
 export async function publicQuota(key: string | null): Promise<QuotaView> {
 	const res = await fetch('/api/quota', {

@@ -18,6 +18,7 @@
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import BoxesIcon from '@lucide/svelte/icons/boxes';
 	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
+	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import { mode, toggleMode } from 'mode-watcher';
 	import type { LayoutProps } from './$types';
 
@@ -31,6 +32,7 @@
 		{ href: '/keys', label: 'API keys', icon: KeyRoundIcon },
 		{ href: '/models', label: 'Models', icon: BoxesIcon },
 		{ href: '/usage', label: 'Usage', icon: ChartColumnIcon },
+		{ href: '/audit', label: 'Audit log', icon: ScrollTextIcon },
 		{ href: '/quota-page', label: 'Quota page', icon: GaugeIcon },
 		{ href: '/settings', label: 'Settings', icon: SettingsIcon }
 	];
