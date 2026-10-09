@@ -158,8 +158,8 @@ export type PageSettings = {
 	access: 'key' | 'public';
 	title: string;
 	notice: string;
-	defaultView: ProfileConfig;
-	defaultProfileId: number;
+	// Shown without a key when access is public.
+	publicProfileId: number;
 };
 
 export type Settings = {
@@ -227,7 +227,7 @@ export type DisplayProfile = {
 	createdAt: string;
 	updatedAt: string;
 	keyCount: number;
-	isDefault: boolean;
+	isPublic: boolean;
 };
 
 export type Level = 'plenty' | 'ok' | 'low' | 'out';

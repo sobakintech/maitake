@@ -22,7 +22,10 @@
 			view = await publicQuota(key);
 			error = '';
 		} catch (e) {
-			if (e instanceof ApiError && e.status === 401 && key) {
+			if (e instanceof ApiError && e.status === 403) {
+				error = "This key doesn't have access to the quota page.";
+				view = null;
+			} else if (e instanceof ApiError && e.status === 401 && key) {
 				localStorage.removeItem(storageKey);
 				key = null;
 				error = 'That key was not accepted.';

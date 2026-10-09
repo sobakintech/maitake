@@ -23,9 +23,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
-	if id := body.QuotaPage.DefaultProfileID; id > 0 {
+	if id := body.QuotaPage.PublicProfileID; id > 0 {
 		if _, err := s.store.GetProfile(r.Context(), id); err != nil {
-			writeError(w, http.StatusBadRequest, "default profile does not exist")
+			writeError(w, http.StatusBadRequest, "the public profile does not exist")
 			return
 		}
 	}
@@ -61,13 +61,13 @@ func normalizedConfig(raw json.RawMessage) (json.RawMessage, error) {
 
 type profileView struct {
 	store.DisplayProfile
-	Config    quota.Profile `json:"config"`
-	IsDefault bool          `json:"isDefault"`
+	Config   quota.Profile `json:"config"`
+	IsPublic bool          `json:"isPublic"`
 }
 
 func (s *Server) profileView(p store.DisplayProfile) profileView {
 	return profileView{DisplayProfile: p, Config: quota.ParseProfile(p.Config),
-		IsDefault: p.ID == s.settings.Get().QuotaPage.DefaultProfileID}
+		IsPublic: p.ID == s.settings.Get().QuotaPage.PublicProfileID}
 }
 
 func (s *Server) listProfiles(w http.ResponseWriter, r *http.Request) {
@@ -141,8 +141,8 @@ func (s *Server) deleteProfile(w http.ResponseWriter, r *http.Request) {
 		writeStoreError(w, r, err)
 		return
 	}
-	if cur := s.settings.Get(); cur.QuotaPage.DefaultProfileID == id {
-		cur.QuotaPage.DefaultProfileID = 0
+	if cur := s.settings.Get(); cur.QuotaPage.PublicProfileID == id {
+		cur.QuotaPage.PublicProfileID = 0
 		_, _ = s.settings.Put(r.Context(), cur)
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -173,28 +173,28 @@ func (s *Server) refreshCodexResets(w http.ResponseWriter, r *http.Request) {
 // quotaMeta tells the public page whether it's enabled and whether it needs a key, without auth.
 func (s *Server) quotaMeta(w http.ResponseWriter, r *http.Request) {
 	page := s.settings.Get().QuotaPage
-	writeJSON(w, http.StatusOK, map[string]any{"enabled": page.Enabled, "access": page.Access, "title": page.Title})
-}
-
-// defaultProfile is the view for keys without their own: a chosen profile, else the default view.
-func (s *Server) defaultProfile(r *http.Request) quota.Profile {
-	page := s.settings.Get().QuotaPage
-	if page.DefaultProfileID > 0 {
-		if p, err := s.store.GetProfile(r.Context(), page.DefaultProfileID); err == nil {
-			return quota.ParseProfile(p.Config)
-		}
+	access := page.Access
+	if page.PublicProfileID == 0 {
+		access = "key"
 	}
-	return *page.DefaultView
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": page.Enabled, "access": access, "title": page.Title})
 }
 
-// publicQuota serves the quota page, filtered by the viewer's display profile.
+// publicQuota serves the quota page. Each key sees its own view or its profile; keys with
+// neither see nothing. In public mode, visitors without a key see the public profile.
 func (s *Server) publicQuota(w http.ResponseWriter, r *http.Request) {
 	page := s.settings.Get().QuotaPage
 	if !page.Enabled {
 		writeError(w, http.StatusNotFound, "the quota page is disabled")
 		return
 	}
-	profile := s.defaultProfile(r)
+	var profile *quota.Profile
+	load := func(id int64) {
+		if p, err := s.store.GetProfile(r.Context(), id); err == nil {
+			v := quota.ParseProfile(p.Config)
+			profile = &v
+		}
+	}
 	if key := clientKey(r); key != "" {
 		owner, err := s.store.AuthenticateKey(r.Context(), secret.Hash(key))
 		if errors.Is(err, store.ErrNotFound) {
@@ -205,20 +205,25 @@ func (s *Server) publicQuota(w http.ResponseWriter, r *http.Request) {
 			writeStoreError(w, r, err)
 			return
 		}
-		// A key's own view wins, then its profile, then the default.
 		if len(owner.Key.DisplayConfig) > 0 {
-			profile = quota.ParseProfile(owner.Key.DisplayConfig)
+			v := quota.ParseProfile(owner.Key.DisplayConfig)
+			profile = &v
 		} else if id := owner.Key.DisplayProfileID; id != nil {
-			if p, err := s.store.GetProfile(r.Context(), *id); err == nil {
-				profile = quota.ParseProfile(p.Config)
-			}
+			load(*id)
 		}
-	} else if page.Access != "public" {
+		if profile == nil {
+			writeError(w, http.StatusForbidden, "this key has no quota page access")
+			return
+		}
+	} else if page.Access == "public" && page.PublicProfileID > 0 {
+		load(page.PublicProfileID)
+	}
+	if profile == nil {
 		writeError(w, http.StatusUnauthorized, "an API key is required to view this page")
 		return
 	}
 	snap := s.resets.Snapshot()
-	view := quota.Build(profile, page, s.accounts.QuotaInfos(), &snap, time.Now())
+	view := quota.Build(*profile, page, s.accounts.QuotaInfos(), &snap, time.Now())
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]any{"view": view})
 }

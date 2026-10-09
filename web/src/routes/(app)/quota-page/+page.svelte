@@ -52,24 +52,10 @@
 		}
 	}
 
-	function adoptDefault(id: number) {
-		draft.base = { ...draft.base, quotaPage: { ...draft.base.quotaPage, defaultProfileId: id } };
-		draft.value.quotaPage.defaultProfileId = id;
-	}
-
-	// The default profile is applied immediately and kept out of the unsaved-changes draft.
-	async function setDefault(id: number, message?: string) {
-		try {
-			await admin.saveSettings({
-				...draft.base,
-				quotaPage: { ...draft.base.quotaPage, defaultProfileId: id }
-			});
-			adoptDefault(id);
-			if (message) toast.success(message);
-			await invalidateAll();
-		} catch (e) {
-			toast.error(errorMessage(e));
-		}
+	// A deleted profile is already cleared on the server; keep the draft in step without marking it dirty.
+	function clearPublic() {
+		draft.base = { ...draft.base, quotaPage: { ...draft.base.quotaPage, publicProfileId: 0 } };
+		draft.value.quotaPage.publicProfileId = 0;
 	}
 
 	const resets = $derived(data.codexResets);
@@ -118,9 +104,9 @@
 							<div class="flex items-start gap-3">
 								<RadioGroup.Item value="key" id="acc-key" class="mt-0.5" />
 								<Label for="acc-key" class="flex flex-col items-start gap-0.5 font-normal">
-									<span class="font-medium">Anyone with a valid API key</span>
+									<span class="font-medium">Keys with a view</span>
 									<span class="text-muted-foreground"
-										>Each key sees its own view, its profile, or the default.</span
+										>Each key sees its own view or its profile. Keys with neither see nothing.</span
 									>
 								</Label>
 							</div>
@@ -129,12 +115,38 @@
 								<Label for="acc-public" class="flex flex-col items-start gap-0.5 font-normal">
 									<span class="font-medium">Everyone</span>
 									<span class="text-muted-foreground">
-										No key needed; visitors see the default view. A key still unlocks its own view.
+										Visitors without a key see the profile below. Keys still see their own view.
 									</span>
 								</Label>
 							</div>
 						</RadioGroup.Root>
 					</Field.Set>
+					{#if form.quotaPage.access === 'public'}
+						<Field.Field>
+							<Field.Label>Profile for visitors without a key</Field.Label>
+							<Select.Root
+								type="single"
+								value={String(form.quotaPage.publicProfileId)}
+								onValueChange={(v) => (form.quotaPage.publicProfileId = Number(v))}
+							>
+								<Select.Trigger class="w-64">
+									{data.profiles.find((p) => p.id === form.quotaPage.publicProfileId)?.name ??
+										'None'}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="0" label="None">None</Select.Item>
+									{#each data.profiles as p (p.id)}
+										<Select.Item value={String(p.id)} label={p.name}>{p.name}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							<Field.Description>
+								{data.profiles.length
+									? 'Without one, the page still asks for a key.'
+									: 'Create a profile first; until then the page still asks for a key.'}
+							</Field.Description>
+						</Field.Field>
+					{/if}
 					<Field.Field>
 						<Field.Label for="qp-title">Title</Field.Label>
 						<Input id="qp-title" maxlength={100} bind:value={form.quotaPage.title} />
@@ -158,55 +170,9 @@
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Default view</Card.Title>
-			<Card.Description>
-				What keys see unless they have their own view or a profile. Set those on each key's page.
-			</Card.Description>
-		</Card.Header>
-		<Card.Content class="flex flex-wrap items-center gap-2">
-			<Select.Root
-				type="single"
-				value={String(form.quotaPage.defaultProfileId)}
-				onValueChange={(v) => {
-					const id = Number(v);
-					const name = data.profiles.find((p) => p.id === id)?.name;
-					setDefault(id, id ? `${name} is now the default` : 'Using the default view');
-				}}
-			>
-				<Select.Trigger class="w-64">
-					{form.quotaPage.defaultProfileId
-						? (data.profiles.find((p) => p.id === form.quotaPage.defaultProfileId)?.name ??
-							'Default view')
-						: 'Default view'}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="0" label="Default view">Default view</Select.Item>
-					{#if data.profiles.length}
-						<Select.Separator />
-						<Select.Label>Or a profile</Select.Label>
-						{#each data.profiles as p (p.id)}
-							<Select.Item value={String(p.id)} label={p.name}>{p.name}</Select.Item>
-						{/each}
-					{/if}
-				</Select.Content>
-			</Select.Root>
-			{#if form.quotaPage.defaultProfileId}
-				<Button
-					variant="outline"
-					size="sm"
-					href="/quota-page/profiles/{form.quotaPage.defaultProfileId}">Edit profile</Button
-				>
-			{:else}
-				<Button variant="outline" size="sm" href="/quota-page/default">Edit default view</Button>
-			{/if}
-		</Card.Content>
-	</Card.Root>
-
-	<Card.Root>
-		<Card.Header>
 			<Card.Title>Profiles</Card.Title>
 			<Card.Description>
-				Optional: saved views you can give to several keys at once.
+				Saved views you can give to several keys at once. A key can also have its own view instead.
 			</Card.Description>
 			<Card.Action>
 				<Button size="sm" onclick={() => (newProfileOpen = true)}><PlusIcon /> New profile</Button>
@@ -215,7 +181,7 @@
 		<Card.Content>
 			{#if data.profiles.length === 0}
 				<p class="py-4 text-sm text-muted-foreground">
-					No profiles. Keys use the default view or their own.
+					No profiles. Keys can still have their own view.
 				</p>
 			{:else}
 				<Table.Root>
@@ -232,20 +198,12 @@
 							<Table.Row>
 								<Table.Cell class="font-medium">
 									<a href="/quota-page/profiles/{p.id}" class="hover:underline">{p.name}</a>
-									{#if p.isDefault}<Badge variant="secondary" class="ml-2">Default</Badge>{/if}
+									{#if p.isPublic}<Badge variant="secondary" class="ml-2">Public</Badge>{/if}
 								</Table.Cell>
 								<Table.Cell class="tabular-nums">{p.keyCount}</Table.Cell>
 								<Table.Cell class="text-muted-foreground">{relativeTime(p.updatedAt)}</Table.Cell>
 								<Table.Cell>
 									<div class="flex justify-end gap-1">
-										{#if !p.isDefault}
-											<Button
-												variant="ghost"
-												size="sm"
-												onclick={() => setDefault(p.id, `${p.name} is now the default`)}
-												>Make default</Button
-											>
-										{/if}
 										<Button variant="ghost" size="sm" href="/quota-page/profiles/{p.id}"
 											>Edit</Button
 										>
@@ -415,7 +373,8 @@
 		<AlertDialog.Header>
 			<AlertDialog.Title>Delete {deleting?.name}?</AlertDialog.Title>
 			<AlertDialog.Description>
-				{deleting?.keyCount ?? 0} key(s) use it; they'll fall back to the default view.
+				{deleting?.keyCount ?? 0} key(s) use it; they'll lose quota page access unless they have their
+				own view.
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
@@ -428,7 +387,7 @@
 					if (!p) return;
 					try {
 						await admin.deleteProfile(p.id);
-						if (draft.base.quotaPage.defaultProfileId === p.id) adoptDefault(0);
+						if (draft.base.quotaPage.publicProfileId === p.id) clearPublic();
 						toast.success('Profile deleted');
 						await invalidateAll();
 					} catch (e) {

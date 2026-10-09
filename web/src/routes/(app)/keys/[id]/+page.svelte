@@ -85,9 +85,9 @@
 		form.displayProfileId === 'custom'
 			? 'Its own view'
 			: form.displayProfileId === '0'
-				? 'Default view'
+				? 'No quota view'
 				: (data.profiles.find((p) => String(p.id) === form.displayProfileId)?.name ??
-					'Default view')
+					'No quota view')
 	);
 	const keyRules = $derived<KeyRules>({ rules: form.rules, ignoreGlobal: form.ignoreGlobal });
 
@@ -106,8 +106,8 @@
 				...(f.displayProfileId === 'custom'
 					? {
 							displayProfileId: 0,
-							// Keep the existing view; a new one starts from the default.
-							displayConfig: data.key.displayConfig ?? data.defaultView
+							// Keep the existing view; a new one starts from the standard settings.
+							displayConfig: data.key.displayConfig ?? data.blankView
 						}
 					: { displayProfileId: Number(f.displayProfileId), displayConfig: null }),
 				modelRules: { rules: f.rules, ignoreGlobal: f.ignoreGlobal },
@@ -264,7 +264,7 @@
 						<Select.Root type="single" bind:value={form.displayProfileId}>
 							<Select.Trigger class="w-64">{profileLabel}</Select.Trigger>
 							<Select.Content>
-								<Select.Item value="0" label="Default view">Default view</Select.Item>
+								<Select.Item value="0" label="No quota view">No quota view</Select.Item>
 								<Select.Item value="custom" label="Its own view">Its own view</Select.Item>
 								{#if data.profiles.length}
 									<Select.Separator />
@@ -288,8 +288,8 @@
 						{/if}
 					</div>
 					<Field.Description>
-						What this key's holder sees on the quota page: the default, a view set just for this
-						key, or a shared profile.
+						What this key's holder sees on the quota page: nothing, a view set just for this key, or
+						a shared profile.
 					</Field.Description>
 				</Field.Field>
 			</Field.Group>

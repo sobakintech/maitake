@@ -11,8 +11,8 @@
 
 	let { data }: PageProps = $props();
 
-	// A key without its own view starts from the default one.
-	const initial = () => data.key.displayConfig ?? data.defaultView;
+	// A key without its own view starts from the standard settings.
+	const initial = () => data.key.displayConfig ?? data.blankView;
 	const draft = new Draft<ProfileConfig>(untrack(initial));
 	$effect.pre(() => draft.sync(initial()));
 	let saving = $state(false);
@@ -46,7 +46,7 @@
 		<h1 class="text-xl font-semibold tracking-tight">Quota page view for this key</h1>
 		<p class="text-sm text-muted-foreground">
 			Only this key sees it, whatever profile is assigned.
-			{#if isNew}Starts as a copy of the default view; save to use it.{/if}
+			{#if isNew}Starts from the standard settings; save to use it.{/if}
 		</p>
 	</div>
 

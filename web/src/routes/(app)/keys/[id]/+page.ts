@@ -4,13 +4,12 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, params }) => {
 	try {
-		const [{ key }, { models, labs }, { profiles }, { settings }] = await Promise.all([
+		const [{ key }, { models, labs }, { profiles, defaults }] = await Promise.all([
 			admin.key(Number(params.id), fetch),
 			admin.models(fetch),
-			admin.profiles(fetch),
-			admin.settings(fetch)
+			admin.profiles(fetch)
 		]);
-		return { key, models, labs, profiles, defaultView: settings.quotaPage.defaultView };
+		return { key, models, labs, profiles, blankView: defaults };
 	} catch (e) {
 		if (e instanceof ApiError && (e.status === 404 || e.status === 400))
 			error(404, 'Key not found');
