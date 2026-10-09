@@ -1,0 +1,1 @@
+ALTER TABLE accounts ADD COLUMN web_session TEXT NOT NULL DEFAULT '';

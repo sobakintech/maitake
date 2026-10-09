@@ -1,0 +1,3 @@
+ALTER TABLE usage_events ADD COLUMN service_tier TEXT NOT NULL DEFAULT '';
+ALTER TABLE usage_events ADD COLUMN served_tier TEXT NOT NULL DEFAULT '';
+ALTER TABLE usage_events ADD COLUMN ttft_ms INTEGER NOT NULL DEFAULT 0;

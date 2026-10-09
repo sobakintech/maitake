@@ -1,0 +1,1 @@
+ALTER TABLE accounts ADD COLUMN subscription TEXT NOT NULL DEFAULT '';

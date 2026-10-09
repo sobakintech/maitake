@@ -1,0 +1,25 @@
+# Bootstrap settings only. Users, API keys, provider accounts and runtime settings
+# are managed from the dashboard.
+
+server:
+  host: 127.0.0.1
+  port: 8317
+  # IPs or CIDRs of reverse proxies in front of maitake. X-Forwarded-For and
+  # X-Forwarded-Proto are only trusted from these; leave empty when exposed directly.
+  trusted-proxies: []
+  #  - 127.0.0.1
+  #  - 10.0.0.0/8
+
+# SQLite database and other state are stored here.
+data-dir: data
+
+auth:
+  # Failed admin logins (and setup attempts) allowed per client IP within the window.
+  # Set attempts to 0 to disable the limit.
+  login-rate-limit:
+    attempts: 10
+    window: 15m
+
+# Send all upstream provider traffic through an HTTP(S) or SOCKS5 proxy, e.g.
+# "socks5://127.0.0.1:1080". Leave empty to connect directly.
+proxy-url: ""
