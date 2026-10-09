@@ -3,6 +3,7 @@
 	import favicon from '#lib/assets/favicon.svg';
 	import { ModeWatcher } from 'mode-watcher';
 	import { Toaster } from '#lib/components/ui/sonner/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -15,4 +16,6 @@
 
 <ModeWatcher />
 <Toaster richColors />
-{@render children()}
+<Tooltip.Provider>
+	{@render children()}
+</Tooltip.Provider>
