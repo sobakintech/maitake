@@ -7,8 +7,8 @@
   "steps": {
     "build": {
       "commands": [
-        "sh -c 'cd web && pnpm install --frozen-lockfile && pnpm build'",
-        "go build -tags embedui -ldflags=\"-w -s\" -o out ./cmd/maitake"
+        "cd web && pnpm install --frozen-lockfile && pnpm build",
+        "go build -tags embedui -ldflags=-s -o out ./cmd/maitake"
       ]
     }
   },
