@@ -11,6 +11,7 @@ import (
 
 	"github.com/sobakintech/maitake/internal/secret"
 	"github.com/sobakintech/maitake/internal/store"
+	"github.com/sobakintech/maitake/internal/version"
 )
 
 const (
@@ -35,6 +36,7 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"setupRequired": s.setupPending(), "admin": nil}
 	if a := s.sessionAdmin(r); a != nil {
 		resp["admin"] = a
+		resp["version"] = version.Version
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

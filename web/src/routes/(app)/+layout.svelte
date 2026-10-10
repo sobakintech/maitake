@@ -110,6 +110,10 @@
 							<DropdownMenu.Item onSelect={logout}>
 								<LogOutIcon /> Sign out
 							</DropdownMenu.Item>
+							{#if data.version}
+								<DropdownMenu.Separator />
+								<DropdownMenu.Label class="font-normal">maitake {data.version}</DropdownMenu.Label>
+							{/if}
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 				</Sidebar.MenuItem>

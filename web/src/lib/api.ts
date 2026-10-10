@@ -25,7 +25,11 @@ export type * from './types.js';
 
 export type Admin = { id: number; username: string; createdAt: string };
 
-export type Session = { setupRequired: boolean; admin: Admin | null };
+export type Session = {
+	setupRequired: boolean;
+	admin: Admin | null;
+	version?: string;
+};
 
 export type User = {
 	id: number;

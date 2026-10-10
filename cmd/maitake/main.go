@@ -34,7 +34,13 @@ import (
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "path to config file")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("maitake", version.Version)
+		return
+	}
 
 	if err := run(*configPath); err != nil {
 		slog.Error("fatal", "err", err)
