@@ -1,12 +1,23 @@
-# maitake
+<p align="center">
+  <img src="web/static/icon-512.png" width="128" alt="maitake icon">
+</p>
+
+<h1 align="center">maitake</h1>
+
+<p align="center">
+  <b>mai·ta·ke</b> · /maɪˈtɑːkeɪ/ · “my-TAH-keh”<br>
+  <sub>舞茸, Japanese for the “dancing mushroom”</sub>
+</p>
 
 A multi-user proxy that serves Claude Code and Codex (ChatGPT) subscriptions as Claude Messages, OpenAI Chat Completions and OpenAI Responses APIs, with a built-in admin dashboard. Inspired by [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI).
+
+![The maitake admin dashboard overview, with request stats, requests per hour and per-account limits](docs/overview.jpg)
 
 - Per-user API keys with allowed models, rate limits and expiry
 - Account pool with priorities, automatic failover, cooldowns and token refresh
 - Live quota tracking for every account, including Codex banked resets (view, redeem, auto-redeem)
 - Usage logging per user, key, model and account
-- A read-only quota page for users, with admin-defined display profiles filtered server-side
+- A self-serve quota page: anyone with a key can check the remaining limits and reset times themselves, showing only what the admin chose for that key
 - Upcoming and predicted Codex resets from [codex-resets.com](https://codex-resets.com)
 
 ## Endpoints
