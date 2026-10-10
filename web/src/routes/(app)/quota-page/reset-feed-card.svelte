@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import type { FeedSettings, ResetsSnapshot } from '#lib/api.js';
+	import { errorMessage, type FeedSettings, type ResetsSnapshot } from '#lib/api.js';
 	import { countdown, relativeTime, shortDateTime } from '#lib/format.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -10,6 +10,7 @@
 	import { Switch } from '#lib/components/ui/switch/index.js';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import { toast } from 'svelte-sonner';
 
 	// One reset tracker's settings and latest data. Feeds without a schedule or forecast
 	// (claude-resets.com) skip those tiles.
@@ -41,6 +42,24 @@
 			: null
 	);
 
+	let checking = $state(false);
+
+	// The server fetches in the background, so give it a moment before reloading.
+	async function checkNow() {
+		checking = true;
+		try {
+			await onRefresh();
+			await new Promise((r) => setTimeout(r, 2500));
+			await invalidateAll();
+			if (snapshot.error) toast.error(snapshot.error);
+			else toast.success(`${name} reset feed checked`);
+		} catch (e) {
+			toast.error(errorMessage(e));
+		} finally {
+			checking = false;
+		}
+	}
+
 	function capitalize(s: string) {
 		return s ? s[0].toUpperCase() + s.slice(1) : s;
 	}
@@ -56,15 +75,8 @@
 			>. Profiles choose which parts to show.
 		</Card.Description>
 		<Card.Action>
-			<Button
-				size="sm"
-				variant="outline"
-				onclick={async () => {
-					await onRefresh();
-					setTimeout(() => invalidateAll(), 2500);
-				}}
-			>
-				<RefreshCwIcon /> Check now
+			<Button size="sm" variant="outline" disabled={checking} onclick={checkNow}>
+				<RefreshCwIcon class={checking ? 'animate-spin' : ''} /> Check now
 			</Button>
 		</Card.Action>
 	</Card.Header>

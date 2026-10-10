@@ -58,7 +58,12 @@
 		try {
 			updates = (await admin.checkUpdates()).updates;
 			if (updates.error) toast.error(updates.error);
-			else await invalidateAll();
+			else {
+				await invalidateAll();
+				const n = updates.newer.length;
+				if (n) toast.info(`${n} ${n === 1 ? 'update' : 'updates'} available`);
+				else toast.success("You're on the latest version");
+			}
 		} catch (err) {
 			toast.error(errorMessage(err));
 		} finally {
