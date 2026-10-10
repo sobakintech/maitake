@@ -7,7 +7,9 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/sobakintech/maitake/internal/provider"
@@ -37,7 +39,22 @@ type cedarEmber struct {
 	CooldownUntil    *string      `json:"cooldown_until"`
 }
 
-var clearsLabels = map[string]string{"five_hour": "5-hour", "seven_day": "Weekly"}
+// seven_day_overage_included is the weekly limit counted with extra usage, so it folds into Weekly.
+var clearsLabels = map[string]string{"seven_day": "Weekly", "seven_day_overage_included": "Weekly", "five_hour": "5 hr"}
+
+// resetTitle names a grant by what it clears, the way ChatGPT titles Codex resets.
+func resetTitle(clears []string) string {
+	switch len(clears) {
+	case 0:
+		return ""
+	case 1:
+		return clears[0] + " reset"
+	}
+	if len(clears) == 2 && clears[0] == "Weekly" && clears[1] == "5 hr" {
+		return "Full reset (Weekly + 5 hr)"
+	}
+	return "Reset (" + strings.Join(clears, " + ") + ")"
+}
 
 func timeOf(s *string) *time.Time {
 	if s == nil {
@@ -66,14 +83,20 @@ func bankedFromUsage(raw json.RawMessage, now time.Time) *quota.Banked {
 		if g.ID == "" || g.ResetsLeft <= 0 || g.Paused || (ends != nil && !ends.After(now)) {
 			continue
 		}
-		c := quota.BankedCredit{ID: g.ID, Type: resetProgram, Title: g.Label, GrantedAt: timeOf(g.StartsAt),
+		c := quota.BankedCredit{ID: g.ID, Type: resetProgram, GrantedAt: timeOf(g.StartsAt),
 			ExpiresAt: ends, Count: g.ResetsLeft, RequiresLimit: g.UseRequiresLimit}
 		for _, w := range g.Clears {
-			if l, ok := clearsLabels[w]; ok {
-				c.Clears = append(c.Clears, l)
-			} else {
-				c.Clears = append(c.Clears, titleCase(w))
+			l, ok := clearsLabels[w]
+			if !ok {
+				l = titleCase(strings.ReplaceAll(w, "_", " "))
 			}
+			if !slices.Contains(c.Clears, l) {
+				c.Clears = append(c.Clears, l)
+			}
+		}
+		sort.SliceStable(c.Clears, func(i, j int) bool { return c.Clears[i] == "Weekly" && c.Clears[j] != "Weekly" })
+		if c.Title = resetTitle(c.Clears); c.Title == "" {
+			c.Title = g.Label
 		}
 		b.Available += g.ResetsLeft
 		b.Credits = append(b.Credits, c)

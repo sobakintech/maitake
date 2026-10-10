@@ -14,7 +14,7 @@ import (
 // cedar_ember block as returned to claude-cli 2.1.280+ (Oct 2026), plus a used-up and a paused grant.
 const cedarSample = `{"eligible":true,"ineligible_reason":null,"at_limit":false,"exhausted":[],
 "grants":[
- {"id":"opus_launch","label":"Claude Opus 5.5 launch","resets_total":1,"resets_left":1,"starts_at":"2026-09-22T16:00:00Z","ends_at":"2026-10-22T23:59:59Z","clears":["five_hour","seven_day"],"paused":false,"usable_now":true,"use_requires_limit":false,"percent_used":{"five_hour":10,"seven_day":40},"blocking":[],"arm":null},
+ {"id":"opus_launch","label":"Claude Opus 5.5 launch","resets_total":1,"resets_left":1,"starts_at":"2026-09-22T16:00:00Z","ends_at":"2026-10-22T23:59:59Z","clears":["five_hour","seven_day","seven_day_overage_included"],"paused":false,"usable_now":true,"use_requires_limit":false,"percent_used":{"five_hour":10,"seven_day":40},"blocking":[],"arm":null},
  {"id":"spent","label":"Old","resets_total":1,"resets_left":0,"ends_at":"2026-12-01T00:00:00Z","paused":false},
  {"id":"held","label":"Paused","resets_total":1,"resets_left":1,"ends_at":"2026-12-01T00:00:00Z","paused":true},
  {"id":"later","label":"Later","resets_total":2,"resets_left":2,"ends_at":"2026-12-01T00:00:00Z","clears":["seven_day"],"paused":false,"use_requires_limit":true}
@@ -28,11 +28,11 @@ func TestBankedFromUsage(t *testing.T) {
 		t.Fatalf("banked = %+v", b)
 	}
 	next, first := b.Credits[0], b.Credits[1]
-	if next.ID != "later" || next.Count != 2 || !next.RequiresLimit || len(next.Clears) != 1 || next.Clears[0] != "Weekly" {
+	if next.ID != "later" || next.Count != 2 || !next.RequiresLimit || next.Title != "Weekly reset" {
 		t.Errorf("next grant = %+v", next)
 	}
-	if first.ID != "opus_launch" || first.Title != "Claude Opus 5.5 launch" || first.ExpiresAt == nil ||
-		first.GrantedAt == nil || len(first.Clears) != 2 || first.Clears[0] != "5-hour" {
+	if first.ID != "opus_launch" || first.Title != "Full reset (Weekly + 5 hr)" || first.ExpiresAt == nil ||
+		first.GrantedAt == nil || len(first.Clears) != 2 {
 		t.Errorf("launch grant = %+v", first)
 	}
 

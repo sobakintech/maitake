@@ -34,15 +34,6 @@
 		return !!c.expiresAt && new Date(c.expiresAt).getTime() - Date.now() < 3 * 86_400_000;
 	}
 
-	function details(c: BankedCredit) {
-		return [
-			c.clears?.length ? `Clears ${c.clears.join(' + ')}` : '',
-			c.requiresLimit ? 'Only while a limit is hit' : ''
-		]
-			.filter(Boolean)
-			.join(' · ');
-	}
-
 	const resultText: Record<string, string> = {
 		reset: 'Limits reset',
 		already_redeemed: 'Limits reset',
@@ -152,8 +143,8 @@
 									No expiry
 								{/if}
 							</p>
-							{#if details(c)}
-								<p class="text-xs text-muted-foreground">{details(c)}</p>
+							{#if c.requiresLimit}
+								<p class="text-xs text-muted-foreground">Only while a limit is hit</p>
 							{/if}
 							{#if c.grantedAt}
 								<p class="text-xs text-muted-foreground">Granted {relativeTime(c.grantedAt)}</p>
