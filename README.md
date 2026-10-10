@@ -22,10 +22,10 @@ A multi-user proxy that serves Claude Code and Codex (ChatGPT) subscriptions as 
 
 ## Quick start
 
-Run the published image with Docker Compose. [`compose.yaml`](compose.yaml) is all it takes:
+Run the published image with Docker Compose. [`docker-compose.yml`](docker-compose.yml) is all it takes:
 
 ```sh
-curl -O https://raw.githubusercontent.com/sobakintech/maitake/main/compose.yaml
+curl -O https://raw.githubusercontent.com/sobakintech/maitake/main/docker-compose.yml
 docker compose up -d
 docker compose logs maitake | grep "setup token"
 ```
