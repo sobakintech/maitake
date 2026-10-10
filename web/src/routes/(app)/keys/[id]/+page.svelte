@@ -12,6 +12,7 @@
 	import RouteTester from '#lib/components/route-tester.svelte';
 	import RulesEditor from '#lib/components/rules-editor.svelte';
 	import UnsavedBar from '#lib/components/unsaved-bar.svelte';
+	import UsageSummary from '#lib/components/usage-summary.svelte';
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -185,6 +186,8 @@
 			· created {dateTime(data.key.createdAt)} · used {relativeTime(data.key.lastUsedAt)}
 		</p>
 	</div>
+
+	<UsageSummary keyId={data.key.id} />
 
 	<Card.Root>
 		<Card.Header><Card.Title>Details</Card.Title></Card.Header>
