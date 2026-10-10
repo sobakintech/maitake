@@ -15,10 +15,10 @@ A multi-user proxy that serves Claude Code and Codex (ChatGPT) subscriptions as 
 
 - Per-user API keys with allowed models, rate limits and expiry
 - Account pool with priorities, automatic failover, cooldowns and token refresh
-- Live quota tracking for every account, including Codex banked resets (view, redeem, auto-redeem)
+- Live quota tracking for every account, including banked resets (view and redeem; Codex can also auto-redeem)
 - Usage logging per user, key, model and account
 - A self-serve quota page: anyone with a key can check the remaining limits and reset times themselves, showing only what the admin chose for that key
-- Upcoming and predicted Codex resets from [codex-resets.com](https://codex-resets.com)
+- Announced global resets from [claude-resets.com](https://claude-resets.com) and [codex-resets.com](https://codex-resets.com), plus upcoming and predicted Codex resets
 
 ## Quick start
 
@@ -129,7 +129,7 @@ internal/provider/  Claude and Codex logins, request shaping, quota parsing
 internal/translate/ format translation between Chat, Messages and Responses
 internal/proxy/     /v1 API
 internal/quota/     quota snapshots and display-profile views
-internal/resets/    codex-resets.com poller
+internal/resets/    claude-resets.com and codex-resets.com pollers
 internal/server/    admin API, auth, SPA serving
 internal/store/     SQLite storage and migrations
 web/                SvelteKit dashboard (SPA, embedded into the binary)
