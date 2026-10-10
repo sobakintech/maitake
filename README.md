@@ -20,6 +20,42 @@ A multi-user proxy that serves Claude Code and Codex (ChatGPT) subscriptions as 
 - A self-serve quota page: anyone with a key can check the remaining limits and reset times themselves, showing only what the admin chose for that key
 - Upcoming and predicted Codex resets from [codex-resets.com](https://codex-resets.com)
 
+## Quick start
+
+Run the published image with Docker Compose. [`compose.yaml`](compose.yaml) is all it takes:
+
+```sh
+curl -O https://raw.githubusercontent.com/sobakintech/maitake/main/compose.yaml
+docker compose up -d
+docker compose logs maitake | grep "setup token"
+```
+
+Or with plain Docker:
+
+```sh
+docker run -d --name maitake -p 8317:8317 -v maitake-data:/data ghcr.io/sobakintech/maitake:latest
+```
+
+Open `http://localhost:8317`, paste the setup token from the logs and create the admin account. The token is only logged until the first admin exists.
+
+Images are built for `linux/amd64` and `linux/arm64`. Tags: `latest` follows `main`, `X.Y.Z` and `X.Y` follow releases, and `sha-<commit>` pins an exact build.
+
+## Configuration
+
+Everything except a few bootstrap settings is managed from the dashboard. Those are read from environment variables:
+
+| Variable | Default in the image | Description |
+| --- | --- | --- |
+| `MAITAKE_HOST` | `0.0.0.0` | Listen address |
+| `MAITAKE_PORT` / `PORT` | `8317` | Listen port |
+| `MAITAKE_DATA_DIR` | `/data` | SQLite database and encryption key; keep it on a volume |
+| `MAITAKE_TRUSTED_PROXIES` | | Comma-separated IPs or CIDRs of reverse proxies whose `X-Forwarded-*` headers are trusted |
+| `MAITAKE_PROXY_URL` | | HTTP(S) or SOCKS5 proxy for all upstream provider traffic |
+
+The same settings, plus the admin login rate limit, can go in a config file: copy [`config.example.yaml`](config.example.yaml) to `config.yaml`, or mount it at `/config.yaml` in the container. Environment variables override the file.
+
+Behind a reverse proxy, set `MAITAKE_TRUSTED_PROXIES` so client IPs and HTTPS are detected correctly.
+
 ## Endpoints
 
 | Path | Format |
@@ -37,21 +73,6 @@ A multi-user proxy that serves Claude Code and Codex (ChatGPT) subscriptions as 
 | `GET /v1/models` | Model list, filtered by the key's allowed models |
 
 Append a reasoning level to any model, e.g. `gpt-5.5(high)` or `claude-opus-5(max)`.
-
-## Layout
-
-```
-cmd/maitake/        entrypoint
-internal/accounts/  account pool: selection, refresh, cooldowns, quota polling
-internal/provider/  Claude and Codex logins, request shaping, quota parsing
-internal/translate/ format translation between Chat, Messages and Responses
-internal/proxy/     /v1 API
-internal/quota/     quota snapshots and display-profile views
-internal/resets/    codex-resets.com poller
-internal/server/    admin API, auth, SPA serving
-internal/store/     SQLite storage and migrations
-web/                SvelteKit dashboard (SPA, embedded into the binary)
-```
 
 ## Development
 
@@ -78,10 +99,19 @@ go build -tags embedui -o maitake ./cmd/maitake
 
 Without `-tags embedui` the binary serves only the API.
 
-## First run
+A Docker image builds from the repo root with `docker build -t maitake .`.
 
-On first start the server logs a one-time setup token. Open the dashboard, paste it, and create the admin account.
+## Layout
 
-## Configuration
-
-Copy `config.example.yaml` to `config.yaml`. It only holds bootstrap settings (listen address, trusted proxies, login rate limit, outbound proxy); everything else is managed from the dashboard.
+```
+cmd/maitake/        entrypoint
+internal/accounts/  account pool: selection, refresh, cooldowns, quota polling
+internal/provider/  Claude and Codex logins, request shaping, quota parsing
+internal/translate/ format translation between Chat, Messages and Responses
+internal/proxy/     /v1 API
+internal/quota/     quota snapshots and display-profile views
+internal/resets/    codex-resets.com poller
+internal/server/    admin API, auth, SPA serving
+internal/store/     SQLite storage and migrations
+web/                SvelteKit dashboard (SPA, embedded into the binary)
+```
