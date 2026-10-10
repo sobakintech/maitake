@@ -1,0 +1,13 @@
+.git
+.github
+.ref
+data
+docs
+config.yaml
+maitake
+maitake.exe
+out
+dist
+web/node_modules
+web/build
+web/.svelte-kit

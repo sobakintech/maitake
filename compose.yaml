@@ -1,0 +1,14 @@
+services:
+  maitake:
+    image: ghcr.io/sobakintech/maitake:latest
+    restart: unless-stopped
+    ports:
+      - "8317:8317"
+    volumes:
+      - maitake-data:/data
+    # environment:
+    #   MAITAKE_TRUSTED_PROXIES: 172.16.0.0/12
+    #   MAITAKE_PROXY_URL: socks5://host.docker.internal:1080
+
+volumes:
+  maitake-data:
