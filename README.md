@@ -38,7 +38,9 @@ docker run -d --name maitake -p 8317:8317 -v maitake-data:/data ghcr.io/sobakint
 
 Open `http://localhost:8317`, paste the setup token from the logs and create the admin account. The token is only logged until the first admin exists.
 
-Images are built for `linux/amd64` and `linux/arm64`. Tags: `latest` follows `main`, `X.Y.Z` and `X.Y` follow releases, and `sha-<commit>` pins an exact build.
+Images are built for `linux/amd64` and `linux/arm64`. Tags: `latest` is the newest release, `X.Y.Z` and `X.Y` pin a release, `main` follows the main branch and `sha-<commit>` pins an exact build.
+
+To update, `docker compose pull && docker compose up -d`. The dashboard checks GitHub for new releases and shows their changelog under **Settings → About**; the check can be turned off there.
 
 ## Configuration
 
@@ -74,6 +76,12 @@ Behind a reverse proxy, set `MAITAKE_TRUSTED_PROXIES` so client IPs and HTTPS ar
 
 Append a reasoning level to any model, e.g. `gpt-5.5(high)` or `claude-opus-5(max)`.
 
+## Planned
+
+- More upstream providers: Gemini (AI Studio, Vertex, Antigravity), Kimi and xAI
+- Plain API-key upstreams (Anthropic, OpenAI and OpenAI-compatible endpoints) alongside subscription accounts
+- Token and spend budgets per key, on top of the existing rate limits
+
 ## Development
 
 Backend (port 8317):
@@ -99,7 +107,18 @@ go build -tags embedui -o maitake ./cmd/maitake
 
 Without `-tags embedui` the binary serves only the API.
 
-A Docker image builds from the repo root with `docker build -t maitake .`.
+A Docker image builds from the repo root with `docker build -t maitake .`. `maitake -version` prints the version a binary was built as.
+
+## Releases
+
+Releases are automatic. Every push to `main` that passes CI works out the next [semver](https://semver.org) version from the [Conventional Commits](https://www.conventionalcommits.org) since the last release, then tags it, pushes the Docker image and publishes a GitHub release with the changelog:
+
+| Commits since the last release | Next version |
+| --- | --- |
+| `fix:`, `perf:` or `revert:` | patch, e.g. `0.4.1` → `0.4.2` |
+| `feat:` | minor, e.g. `0.4.1` → `0.5.0` |
+| `feat!:` / `BREAKING CHANGE:` | major, or minor before 1.0 |
+| only `docs:`, `ci:`, `chore:`, `build:`, `refactor:`, `test:` | no release |
 
 ## Layout
 
