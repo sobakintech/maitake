@@ -27,6 +27,7 @@ import (
 	"github.com/sobakintech/maitake/internal/server"
 	"github.com/sobakintech/maitake/internal/settings"
 	"github.com/sobakintech/maitake/internal/store"
+	"github.com/sobakintech/maitake/internal/update"
 	"github.com/sobakintech/maitake/internal/usage"
 	"github.com/sobakintech/maitake/internal/version"
 	"github.com/sobakintech/maitake/web"
@@ -133,6 +134,7 @@ func run(configPath string) error {
 	recorder := usage.NewRecorder(st)
 	auditLog := audit.NewRecorder(st, func() audit.Settings { return sets.Get().Audit })
 	poller := resets.NewPoller(client, func() resets.Settings { return sets.Get().CodexResets })
+	updates := update.NewChecker(client, version.Version, func() update.Settings { return sets.Get().Updates })
 
 	bg, cancelBG := context.WithCancel(context.Background())
 	defer cancelBG()
@@ -140,6 +142,7 @@ func run(configPath string) error {
 	go auditLog.Run(bg)
 	go mgr.Run(ctx)
 	go poller.Run(ctx)
+	go updates.Run(ctx)
 	go every(ctx, time.Hour, func() {
 		if err := st.PurgeExpiredSessions(ctx); err != nil {
 			slog.Error("purge sessions", "err", err)
@@ -164,6 +167,7 @@ func run(configPath string) error {
 		Proxy: proxy.New(st, mgr, claudeProvider, codexProvider, recorder, auditLog,
 			func() accounts.Settings { return sets.Get().Pool }, func() routing.Settings { return sets.Get().Routing }),
 		Resets:     poller,
+		Updates:    updates,
 		Sealer:     sealer,
 		UI:         web.Dist(),
 		SetupToken: setupToken,

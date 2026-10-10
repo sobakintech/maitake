@@ -38,6 +38,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if saved.CodexResets != prev.CodexResets {
 		s.resets.Refresh()
 	}
+	if saved.Updates != prev.Updates {
+		s.updates.Wake()
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"settings": saved})
 }
 

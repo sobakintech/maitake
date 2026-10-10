@@ -5,7 +5,8 @@
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Switch } from '#lib/components/ui/switch/index.js';
-	import { onMount } from 'svelte';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import { dateTime, relativeTime } from '#lib/format.js';
 	import { admin, errorMessage, type Settings } from '#lib/api.js';
 	import { Draft } from '#lib/draft.svelte.js';
 	import UnsavedBar from '#lib/components/unsaved-bar.svelte';
@@ -49,7 +50,21 @@
 		goto(url, { replace: true, reset: false });
 	}
 
-	let version = $state('');
+	let updates = $derived(data.updates);
+	let checking = $state(false);
+
+	async function checkNow() {
+		checking = true;
+		try {
+			updates = (await admin.checkUpdates()).updates;
+			if (updates.error) toast.error(updates.error);
+			else await invalidateAll();
+		} catch (err) {
+			toast.error(errorMessage(err));
+		} finally {
+			checking = false;
+		}
+	}
 
 	// Sensitive words are edited one per line.
 	let wordsText = $state(untrack(() => data.settings.claude.sensitiveWords.join('\n')));
@@ -94,13 +109,6 @@
 			toast.error(errorMessage(err));
 		}
 	}
-	onMount(() => {
-		fetch('/healthz')
-			.then((r) => r.json())
-			.then((d: { version: string }) => (version = d.version))
-			.catch(() => (version = 'unknown'));
-	});
-
 	async function save() {
 		saving = true;
 		try {
@@ -115,6 +123,7 @@
 				r.cooldownSeconds = Number(r.cooldownSeconds) || 0;
 			}
 			next.usageRetentionDays = Number(next.usageRetentionDays);
+			next.updates.intervalHours = Number(next.updates.intervalHours) || 6;
 			for (const k of [
 				'samplePercent',
 				'maxBodyKB',
@@ -613,12 +622,103 @@
 					<Card.Content class="space-y-4 text-sm">
 						<dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
 							<dt class="text-muted-foreground">Version</dt>
-							<dd class="font-mono">{version || '…'}</dd>
+							<dd class="font-mono">{updates.current}</dd>
+							<dt class="text-muted-foreground">Latest release</dt>
+							<dd>
+								{#if updates.latest}
+									<a class="font-mono underline-offset-4 hover:underline" href={updates.latest.url}
+										>{updates.latest.version}</a
+									>
+								{:else}
+									<span class="text-muted-foreground">None found</span>
+								{/if}
+							</dd>
+							<dt class="text-muted-foreground">Last checked</dt>
+							<dd>
+								{relativeTime(updates.checkedAt)}
+								{#if updates.error}<span class="text-destructive"> · {updates.error}</span>{/if}
+							</dd>
 						</dl>
+						{#if !/^\d+\.\d+\.\d+$/.test(updates.current)}
+							<p class="text-muted-foreground">
+								This is a development build, so it isn't compared against releases.
+							</p>
+						{/if}
+						<Button variant="outline" type="button" disabled={checking} onclick={checkNow}>
+							<RefreshCwIcon class={checking ? 'animate-spin' : ''} /> Check now
+						</Button>
 						<p class="text-muted-foreground">
 							The listen address, trusted proxies, login attempt limit and outbound proxy are set in
 							<code>config.yaml</code> on the server and need a restart to change.
 						</p>
+					</Card.Content>
+				</Card.Root>
+
+				{#if updates.newer.length}
+					<Card.Root class="mt-6">
+						<Card.Header>
+							<Card.Title>Update available</Card.Title>
+							<Card.Description>
+								{updates.newer.length === 1 ? '1 release' : `${updates.newer.length} releases`} since
+								{updates.current}. With Docker Compose, update with
+								<code>docker compose pull && docker compose up -d</code>.
+							</Card.Description>
+						</Card.Header>
+						<Card.Content class="space-y-6 text-sm">
+							{#each updates.newer as r (r.version)}
+								<div class="space-y-2">
+									<div class="flex items-baseline gap-2">
+										<a class="font-mono font-medium underline-offset-4 hover:underline" href={r.url}
+											>{r.version}</a
+										>
+										<span class="text-xs text-muted-foreground">{dateTime(r.publishedAt)}</span>
+									</div>
+									{#each r.sections as s (s.title)}
+										<div>
+											<p class="text-xs font-medium text-muted-foreground">{s.title}</p>
+											<ul class="list-disc space-y-0.5 pl-5">
+												{#each s.items as item, i (i)}<li>{item}</li>{/each}
+											</ul>
+										</div>
+									{:else}
+										<p class="text-muted-foreground">No notes for this release.</p>
+									{/each}
+								</div>
+							{/each}
+						</Card.Content>
+					</Card.Root>
+				{/if}
+
+				<Card.Root class="mt-6">
+					<Card.Header>
+						<Card.Title>Updates</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<Field.Group>
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="updates-on">Check for new releases</Field.Label>
+									<Field.Description>
+										Asks GitHub for maitake's releases and shows new ones here and in the sidebar.
+										Nothing about this server is sent.
+									</Field.Description>
+								</Field.Content>
+								<Switch id="updates-on" bind:checked={form.updates.enabled} />
+							</Field.Field>
+							{#if form.updates.enabled}
+								<Field.Field>
+									<Field.Label for="updates-interval">Check every (hours)</Field.Label>
+									<Input
+										id="updates-interval"
+										type="number"
+										min={1}
+										max={168}
+										class="w-32"
+										bind:value={form.updates.intervalHours}
+									/>
+								</Field.Field>
+							{/if}
+						</Field.Group>
 					</Card.Content>
 				</Card.Root>
 			</Tabs.Content>

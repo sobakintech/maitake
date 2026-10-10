@@ -18,6 +18,7 @@ import type {
 	RedeemResult,
 	Settings,
 	UsageRange,
+	UpdatesSnapshot,
 	UsageResponse
 } from './types.js';
 
@@ -29,6 +30,7 @@ export type Session = {
 	setupRequired: boolean;
 	admin: Admin | null;
 	version?: string;
+	update?: { version: string; url: string };
 };
 
 export type User = {
@@ -264,7 +266,10 @@ export const admin = {
 		request<{ view: QuotaView }>('POST', '/admin/profiles/preview', { config }),
 	codexResets: (f?: typeof fetch) =>
 		request<{ codexResets: CodexResetsSnapshot }>('GET', '/admin/codex-resets', undefined, f),
-	refreshCodexResets: () => request<void>('POST', '/admin/codex-resets/refresh')
+	refreshCodexResets: () => request<void>('POST', '/admin/codex-resets/refresh'),
+	updates: (f?: typeof fetch) =>
+		request<{ updates: UpdatesSnapshot }>('GET', '/admin/updates', undefined, f),
+	checkUpdates: () => request<{ updates: UpdatesSnapshot }>('POST', '/admin/updates/check')
 };
 
 function auditQuery(filter: Record<string, string | number | undefined>): URLSearchParams {

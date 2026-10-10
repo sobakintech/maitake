@@ -19,6 +19,7 @@
 	import BoxesIcon from '@lucide/svelte/icons/boxes';
 	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
+	import CircleArrowUpIcon from '@lucide/svelte/icons/circle-arrow-up';
 	import { mode, toggleMode } from 'mode-watcher';
 	import type { LayoutProps } from './$types';
 
@@ -84,6 +85,21 @@
 		</Sidebar.Content>
 		<Sidebar.Footer>
 			<Sidebar.Menu>
+				{#if data.update}
+					<Sidebar.MenuItem>
+						<Sidebar.MenuButton tooltipContent="Update available">
+							{#snippet child({ props })}
+								<a href="/settings?tab=about" {...props}>
+									<CircleArrowUpIcon class="text-primary" />
+									<span>Update available</span>
+									<span class="ml-auto font-mono text-xs text-muted-foreground"
+										>{data.update?.version}</span
+									>
+								</a>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
+				{/if}
 				<Sidebar.MenuItem>
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger>

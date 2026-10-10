@@ -12,6 +12,7 @@ import (
 	"github.com/sobakintech/maitake/internal/resets"
 	"github.com/sobakintech/maitake/internal/routing"
 	"github.com/sobakintech/maitake/internal/store"
+	"github.com/sobakintech/maitake/internal/update"
 )
 
 const key = "settings"
@@ -25,6 +26,7 @@ type Settings struct {
 	Keys               KeySettings          `json:"keys"`
 	Claude             claude.CloakSettings `json:"claude"`
 	Audit              audit.Settings       `json:"audit"`
+	Updates            update.Settings      `json:"updates"`
 }
 
 type KeySettings struct {
@@ -42,6 +44,7 @@ func Defaults() Settings {
 		Keys:               KeySettings{StoreCopies: true},
 		Claude:             claude.DefaultCloak(),
 		Audit:              audit.DefaultSettings(),
+		Updates:            update.DefaultSettings(),
 	}
 }
 
@@ -52,6 +55,7 @@ func (s *Settings) Normalize() {
 	s.Routing.Normalize()
 	s.Claude.Normalize()
 	s.Audit.Normalize()
+	s.Updates.Normalize()
 	if s.UsageRetentionDays < 0 {
 		s.UsageRetentionDays = 0
 	}

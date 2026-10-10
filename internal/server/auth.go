@@ -37,6 +37,11 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 	if a := s.sessionAdmin(r); a != nil {
 		resp["admin"] = a
 		resp["version"] = version.Version
+		if s.updates != nil {
+			if u := s.updates.Snapshot(); u.UpdateAvailable() {
+				resp["update"] = map[string]string{"version": u.Newer[0].Version, "url": u.Newer[0].URL}
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

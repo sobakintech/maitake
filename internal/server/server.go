@@ -23,6 +23,7 @@ import (
 	"github.com/sobakintech/maitake/internal/secret"
 	"github.com/sobakintech/maitake/internal/settings"
 	"github.com/sobakintech/maitake/internal/store"
+	"github.com/sobakintech/maitake/internal/update"
 	"github.com/sobakintech/maitake/internal/version"
 )
 
@@ -35,6 +36,7 @@ type Deps struct {
 	Codex      *codex.Provider
 	Proxy      *proxy.Handler
 	Resets     *resets.Poller
+	Updates    *update.Checker
 	Sealer     *secret.Sealer
 	UI         fs.FS
 	SetupToken string
@@ -48,6 +50,7 @@ type Server struct {
 	claude   *claude.Provider
 	codex    *codex.Provider
 	resets   *resets.Poller
+	updates  *update.Checker
 	sealer   *secret.Sealer
 	oauth    oauthSessions
 	logins   *failureLimiter
@@ -58,7 +61,7 @@ type Server struct {
 
 func New(d Deps) http.Handler {
 	s := &Server{cfg: d.Config, store: d.Store, settings: d.Settings, accounts: d.Accounts, claude: d.Claude,
-		codex: d.Codex, resets: d.Resets, sealer: d.Sealer, setupToken: d.SetupToken,
+		codex: d.Codex, resets: d.Resets, updates: d.Updates, sealer: d.Sealer, setupToken: d.SetupToken,
 		logins: newFailureLimiter(d.Config.Auth.LoginRateLimit.Attempts, d.Config.Auth.LoginRateLimit.Window)}
 
 	r := chi.NewRouter()
@@ -134,6 +137,8 @@ func New(d Deps) http.Handler {
 			r.Delete("/profiles/{id}", s.deleteProfile)
 			r.Get("/codex-resets", s.codexResets)
 			r.Post("/codex-resets/refresh", s.refreshCodexResets)
+			r.Get("/updates", s.getUpdates)
+			r.Post("/updates/check", s.checkUpdates)
 		})
 
 		r.NotFound(func(w http.ResponseWriter, _ *http.Request) {

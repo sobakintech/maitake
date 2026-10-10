@@ -230,6 +230,7 @@ export type Settings = {
 	keys: { storeCopies: boolean };
 	claude: CloakSettings;
 	audit: AuditSettings;
+	updates: { enabled: boolean; intervalHours: number };
 };
 
 export type PoolSettings = {
@@ -367,6 +368,21 @@ export type QuotaView = {
 		stats?: CodexResetStats;
 	};
 	generatedAt: string;
+};
+
+export type Release = {
+	version: string;
+	url: string;
+	publishedAt: string;
+	sections: { title: string; items: string[] }[];
+};
+
+export type UpdatesSnapshot = {
+	current: string;
+	latest: Release | null;
+	newer: Release[];
+	checkedAt: string | null;
+	error?: string;
 };
 
 export type CodexResetsSnapshot = {
