@@ -152,7 +152,9 @@ func (p *Profile) bankedView(banks []*Banked, now time.Time) *BankedView {
 		if p.Banked == "count_expiry" {
 			for _, c := range b.Credits {
 				if c.ExpiresAt != nil && c.ExpiresAt.After(now) {
-					out.Expiries = append(out.Expiries, *c.ExpiresAt)
+					for range min(c.Resets(), 20) {
+						out.Expiries = append(out.Expiries, *c.ExpiresAt)
+					}
 				}
 			}
 		}

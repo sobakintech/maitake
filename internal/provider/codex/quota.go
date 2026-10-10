@@ -268,14 +268,8 @@ func (p *Provider) ResetCredits(ctx context.Context, c provider.Credentials) ([]
 	return out, nil
 }
 
-// RedeemResult is the outcome of spending a banked reset.
-type RedeemResult struct {
-	Code         string   `json:"code"`
-	WindowsReset []string `json:"windowsReset,omitempty"`
-}
-
 // Redeem spends one banked reset. requestID makes retries idempotent.
-func (p *Provider) Redeem(ctx context.Context, c provider.Credentials, requestID, creditID string) (*RedeemResult, error) {
+func (p *Provider) Redeem(ctx context.Context, c provider.Credentials, requestID, creditID string) (*provider.RedeemResult, error) {
 	payload := map[string]string{"redeem_request_id": requestID}
 	if creditID != "" {
 		payload["credit_id"] = creditID
@@ -292,7 +286,7 @@ func (p *Provider) Redeem(ctx context.Context, c provider.Credentials, requestID
 	if err := provider.DoJSON(p.client, req, &raw); err != nil {
 		return nil, err
 	}
-	res := &RedeemResult{Code: raw.Code}
+	res := &provider.RedeemResult{Code: raw.Code}
 	var names []string
 	if json.Unmarshal(raw.WindowsReset, &names) == nil {
 		res.WindowsReset = names

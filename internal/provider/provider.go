@@ -68,6 +68,19 @@ type Provider interface {
 	FetchQuota(ctx context.Context, c Credentials) (*quota.Snapshot, error)
 }
 
+// RedeemResult is the outcome of spending a banked reset. Codes shared by providers: "reset",
+// "already_redeemed", "nothing_to_reset", "no_credit".
+type RedeemResult struct {
+	Code         string   `json:"code"`
+	WindowsReset []string `json:"windowsReset,omitempty"`
+}
+
+// Redeemer is a provider whose accounts can spend banked resets. requestID makes retries idempotent;
+// an empty creditID lets the provider pick.
+type Redeemer interface {
+	Redeem(ctx context.Context, c Credentials, requestID, creditID string) (*RedeemResult, error)
+}
+
 // ErrInvalidGrant means the refresh token is dead and the account needs a new login.
 var ErrInvalidGrant = errors.New("refresh token rejected; log in again")
 

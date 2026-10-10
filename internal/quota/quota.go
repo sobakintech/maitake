@@ -46,10 +46,12 @@ type Amount struct {
 	Used     float64 `json:"used"`
 }
 
-// Banked describes saved rate-limit resets (Codex).
+// Banked describes saved rate-limit resets.
 type Banked struct {
 	Available int            `json:"available"`
 	Credits   []BankedCredit `json:"credits,omitempty"`
+	// CooldownUntil is when another reset can be spent after the last one (Claude).
+	CooldownUntil *time.Time `json:"cooldownUntil,omitempty"`
 }
 
 type BankedCredit struct {
@@ -58,6 +60,19 @@ type BankedCredit struct {
 	Title     string     `json:"title,omitempty"`
 	GrantedAt *time.Time `json:"grantedAt,omitempty"`
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+	// Count is how many resets this credit holds; 0 means one.
+	Count int `json:"count,omitempty"`
+	// Clears names the windows a reset clears, when the provider says.
+	Clears []string `json:"clears,omitempty"`
+	// RequiresLimit means it can only be spent while a limit is hit.
+	RequiresLimit bool `json:"requiresLimit,omitempty"`
+}
+
+func (c BankedCredit) Resets() int {
+	if c.Count > 0 {
+		return c.Count
+	}
+	return 1
 }
 
 // Extra covers paid usage beyond the plan: Claude extra usage / Codex credits.

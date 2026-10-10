@@ -10,7 +10,7 @@
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { toast } from 'svelte-sonner';
 
-	// Every banked reset of a Codex account, inline, each usable on its own.
+	// Every banked reset of an account, inline, each usable on its own.
 	let { account }: { account: Account } = $props();
 
 	// Which reset is waiting for a second click to confirm, and which one is being spent.
@@ -19,17 +19,38 @@
 
 	const banked = $derived(account.quota?.banked);
 	const credits = $derived(banked?.credits ?? []);
-	const unlisted = $derived(Math.max(0, (banked?.available ?? 0) - credits.length));
+	const unlisted = $derived(
+		Math.max(0, (banked?.available ?? 0) - credits.reduce((n, c) => n + (c.count || 1), 0))
+	);
+	// Only Codex accounts spend resets on their own.
+	const autoUse = $derived(account.provider === 'codex');
+	const cooldown = $derived(
+		banked?.cooldownUntil && new Date(banked.cooldownUntil).getTime() > Date.now()
+			? banked.cooldownUntil
+			: null
+	);
 
 	function expiringSoon(c: BankedCredit) {
 		return !!c.expiresAt && new Date(c.expiresAt).getTime() - Date.now() < 3 * 86_400_000;
+	}
+
+	function details(c: BankedCredit) {
+		return [
+			c.clears?.length ? `Clears ${c.clears.join(' + ')}` : '',
+			c.requiresLimit ? 'Only while a limit is hit' : ''
+		]
+			.filter(Boolean)
+			.join(' · ');
 	}
 
 	const resultText: Record<string, string> = {
 		reset: 'Limits reset',
 		already_redeemed: 'Limits reset',
 		nothing_to_reset: "Nothing needed resetting, so the reset wasn't used",
-		no_credit: 'That reset is no longer available'
+		no_credit: 'That reset is no longer available',
+		cooldown: 'Resets are cooling down. Try again later',
+		unconfirmed:
+			"Couldn't confirm the reset. If the account is still limited in a moment, try again"
 	};
 
 	async function use(creditId?: string) {
@@ -71,7 +92,7 @@
 		<Button
 			size="xs"
 			variant="outline"
-			disabled={using !== null}
+			disabled={using !== null || !!cooldown}
 			onclick={() => (confirming = id)}
 			class="shrink-0"
 		>
@@ -91,18 +112,23 @@
 					banked reset{banked.available === 1 ? '' : 's'}
 				</span>
 			</p>
-			<div class="flex items-center gap-2">
-				<Label for="auto-{account.id}" class="text-xs font-normal text-muted-foreground">
-					Use automatically
-				</Label>
-				<Switch
-					id="auto-{account.id}"
-					size="sm"
-					checked={account.redeemEffective.enabled}
-					onCheckedChange={(v) => setAuto(v)}
-				/>
-			</div>
+			{#if autoUse}
+				<div class="flex items-center gap-2">
+					<Label for="auto-{account.id}" class="text-xs font-normal text-muted-foreground">
+						Use automatically
+					</Label>
+					<Switch
+						id="auto-{account.id}"
+						size="sm"
+						checked={account.redeemEffective.enabled}
+						onCheckedChange={(v) => setAuto(v)}
+					/>
+				</div>
+			{/if}
 		</div>
+		{#if cooldown && banked.available > 0}
+			<p class="text-xs text-muted-foreground">Usable again in {countdown(cooldown)}</p>
+		{/if}
 
 		{#if banked.available > 0}
 			<ul class="divide-y rounded-md border bg-background">
@@ -111,8 +137,12 @@
 						<div class="min-w-0 space-y-0.5">
 							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
 								<span>{c.title || 'Rate-limit reset'}</span>
-								{#if i === 0 && c.expiresAt && credits.length > 1}
-									<Badge variant="secondary">Expires first</Badge>
+								{#if (c.count ?? 1) > 1}
+									<Badge variant="outline">×{c.count}</Badge>
+								{/if}
+								{#if i === 0 && credits.length > 1 && (!autoUse || c.expiresAt)}
+									<!-- Claude lists the grant it spends next first; Codex sorts by expiry. -->
+									<Badge variant="secondary">{autoUse ? 'Expires first' : 'Used next'}</Badge>
 								{/if}
 							</div>
 							<p class="text-xs {expiringSoon(c) ? 'text-destructive' : 'text-muted-foreground'}">
@@ -122,6 +152,9 @@
 									No expiry
 								{/if}
 							</p>
+							{#if details(c)}
+								<p class="text-xs text-muted-foreground">{details(c)}</p>
+							{/if}
 							{#if c.grantedAt}
 								<p class="text-xs text-muted-foreground">Granted {relativeTime(c.grantedAt)}</p>
 							{/if}

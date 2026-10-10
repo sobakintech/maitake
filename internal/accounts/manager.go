@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/sobakintech/maitake/internal/provider"
-	"github.com/sobakintech/maitake/internal/provider/codex"
 	"github.com/sobakintech/maitake/internal/quota"
 	"github.com/sobakintech/maitake/internal/store"
 )
@@ -32,7 +31,7 @@ type Settings struct {
 	QuotaPollMinutes int `json:"quotaPollMinutes"`
 	// AutoRedeemMinWaitMinutes is the pre-RedeemPolicy setting, read once into Redeem.
 	AutoRedeemMinWaitMinutes int `json:"autoRedeemMinWaitMinutes,omitempty"`
-	// Redeem is the default banked reset policy for Codex accounts.
+	// Redeem is the default banked reset policy. Only Codex accounts spend resets automatically.
 	Redeem     RedeemPolicy `json:"redeem"`
 	MaxRetries int          `json:"maxRetries"`
 	// BootstrapSeconds is how long to hold a stream's opening events, so an error that arrives
@@ -98,7 +97,6 @@ type entry struct {
 type Manager struct {
 	store     *store.Store
 	providers map[string]provider.Provider
-	codex     *codex.Provider
 	settings  func() Settings
 
 	mu      sync.Mutex
@@ -107,8 +105,8 @@ type Manager struct {
 	wake    chan struct{}
 }
 
-func New(st *store.Store, codexProvider *codex.Provider, settings func() Settings, providers ...provider.Provider) *Manager {
-	m := &Manager{store: st, codex: codexProvider, settings: settings, providers: map[string]provider.Provider{},
+func New(st *store.Store, settings func() Settings, providers ...provider.Provider) *Manager {
+	m := &Manager{store: st, settings: settings, providers: map[string]provider.Provider{},
 		entries: map[int64]*entry{}, sticky: map[string]stickyEntry{}, wake: make(chan struct{}, 1)}
 	for _, p := range providers {
 		m.providers[p.ID()] = p
@@ -693,20 +691,21 @@ func (m *Manager) RefreshSubscription(ctx context.Context, id int64) error {
 	return m.store.SaveAccountSubscription(ctx, id, string(raw))
 }
 
-// Redeem spends one banked reset on a Codex account.
-func (m *Manager) Redeem(ctx context.Context, id int64, creditID string) (*codex.RedeemResult, error) {
+// Redeem spends one banked reset.
+func (m *Manager) Redeem(ctx context.Context, id int64, creditID string) (*provider.RedeemResult, error) {
 	e := m.entry(id)
 	if e == nil {
 		return nil, store.ErrNotFound
 	}
-	if e.acct.Provider != "codex" {
-		return nil, errors.New("banked resets only exist for Codex accounts")
+	r, ok := m.providers[e.acct.Provider].(provider.Redeemer)
+	if !ok {
+		return nil, errors.New("this provider has no banked resets")
 	}
 	creds, err := m.Credentials(ctx, id, false)
 	if err != nil {
 		return nil, err
 	}
-	res, err := m.codex.Redeem(ctx, creds, provider.UUID(), creditID)
+	res, err := r.Redeem(ctx, creds, provider.UUID(), creditID)
 	if err != nil {
 		return nil, err
 	}

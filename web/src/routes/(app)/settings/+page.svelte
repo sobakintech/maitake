@@ -242,7 +242,8 @@
 						<Card.Title>Banked resets</Card.Title>
 						<Card.Description>
 							When Codex accounts spend their banked resets on their own. Each account can override
-							any of this in its Edit dialog.
+							any of this in its Edit dialog. Claude accounts' banked resets are only spent from the
+							Accounts page.
 						</Card.Description>
 					</Card.Header>
 					<Card.Content>

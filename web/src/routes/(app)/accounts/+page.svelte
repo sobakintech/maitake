@@ -271,7 +271,7 @@
 									</div>
 								{/if}
 								<AccountQuota quota={a.quota} />
-								{#if a.provider === 'codex' && a.quota?.banked}
+								{#if a.quota?.banked}
 									<BankedResets account={a} />
 								{/if}
 								{#if a.quota?.extra && (a.quota.extra.enabled || a.quota.extra.balance)}

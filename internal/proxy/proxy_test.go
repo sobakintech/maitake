@@ -245,7 +245,7 @@ func setupWith(t *testing.T, o setupOpts) *env {
 		c := *o.cloak
 		cl.Cloak = func() claude.CloakSettings { return c }
 	}
-	mgr := accounts.New(st, cx, pool, cl, cx)
+	mgr := accounts.New(st, pool, cl, cx)
 	if err := mgr.Load(ctx); err != nil {
 		t.Fatal(err)
 	}

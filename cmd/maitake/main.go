@@ -127,7 +127,7 @@ func run(configPath string) error {
 	claudeProvider := claude.New(client, cfg.ProxyURL == "")
 	claudeProvider.Cloak = func() claude.CloakSettings { return sets.Get().Claude }
 	codexProvider := codex.New(client)
-	mgr := accounts.New(st, codexProvider, func() accounts.Settings { return sets.Get().Pool }, claudeProvider, codexProvider)
+	mgr := accounts.New(st, func() accounts.Settings { return sets.Get().Pool }, claudeProvider, codexProvider)
 	if err := mgr.Load(ctx); err != nil {
 		return err
 	}

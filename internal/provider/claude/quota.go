@@ -105,18 +105,31 @@ func clampPct(v float64) float64 {
 	return v
 }
 
-// FetchQuota polls Claude's OAuth usage endpoint (the one behind Claude Code's /usage).
-func (p *Provider) FetchQuota(ctx context.Context, c provider.Credentials) (*quota.Snapshot, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.APIBase+"/api/oauth/usage", nil)
-	if err != nil {
-		return nil, err
-	}
+func setOAuthHeaders(req *http.Request, c provider.Credentials) {
 	req.Header.Set("Authorization", "Bearer "+c.AccessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("anthropic-beta", "oauth-2025-04-20")
 	req.Header.Set("User-Agent", userAgent)
+}
+
+// usage reads Claude's OAuth usage endpoint (the one behind Claude Code's /usage), including
+// banked resets.
+func (p *Provider) usage(ctx context.Context, c provider.Credentials) (map[string]json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.APIBase+"/api/oauth/usage?cedar_ember=1", nil)
+	if err != nil {
+		return nil, err
+	}
+	setOAuthHeaders(req, c)
 	var raw map[string]json.RawMessage
 	if err := provider.DoJSON(p.http(), req, &raw); err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
+func (p *Provider) FetchQuota(ctx context.Context, c provider.Credentials) (*quota.Snapshot, error) {
+	raw, err := p.usage(ctx, c)
+	if err != nil {
 		return nil, err
 	}
 	return snapshotFromUsage(raw), nil
@@ -204,7 +217,8 @@ func (l usageLimit) window() quota.Window {
 
 func snapshotFromUsage(raw map[string]json.RawMessage) *quota.Snapshot {
 	now := time.Now().UTC()
-	s := &quota.Snapshot{UpdatedAt: now, Source: "poll", FetchedAt: &now, Windows: []quota.Window{}}
+	s := &quota.Snapshot{UpdatedAt: now, Source: "poll", FetchedAt: &now, Windows: []quota.Window{},
+		Banked: bankedFromUsage(raw["cedar_ember"], now)}
 
 	var limits []usageLimit
 	_ = json.Unmarshal(raw["limits"], &limits)

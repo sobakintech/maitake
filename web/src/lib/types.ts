@@ -20,12 +20,15 @@ export type BankedCredit = {
 	title?: string;
 	grantedAt?: string;
 	expiresAt?: string;
+	count?: number;
+	clears?: string[];
+	requiresLimit?: boolean;
 };
 
 export type QuotaSnapshot = {
 	plan?: string;
 	windows: QuotaWindow[];
-	banked?: { available: number; credits?: BankedCredit[] };
+	banked?: { available: number; credits?: BankedCredit[]; cooldownUntil?: string };
 	extra?: {
 		enabled: boolean;
 		unlimited?: boolean;
