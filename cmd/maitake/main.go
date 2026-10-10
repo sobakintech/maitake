@@ -133,7 +133,8 @@ func run(configPath string) error {
 	}
 	recorder := usage.NewRecorder(st)
 	auditLog := audit.NewRecorder(st, func() audit.Settings { return sets.Get().Audit })
-	poller := resets.NewPoller(client, func() resets.Settings { return sets.Get().CodexResets })
+	poller := resets.NewPoller(client, resets.Codex, func() resets.Settings { return sets.Get().CodexResets })
+	claudePoller := resets.NewPoller(client, resets.Claude, func() resets.Settings { return sets.Get().ClaudeResets })
 	updates := update.NewChecker(client, version.Version, func() update.Settings { return sets.Get().Updates })
 
 	bg, cancelBG := context.WithCancel(context.Background())
@@ -142,6 +143,7 @@ func run(configPath string) error {
 	go auditLog.Run(bg)
 	go mgr.Run(ctx)
 	go poller.Run(ctx)
+	go claudePoller.Run(ctx)
 	go updates.Run(ctx)
 	go every(ctx, time.Hour, func() {
 		if err := st.PurgeExpiredSessions(ctx); err != nil {
@@ -166,11 +168,12 @@ func run(configPath string) error {
 		Codex:    codexProvider,
 		Proxy: proxy.New(st, mgr, claudeProvider, codexProvider, recorder, auditLog,
 			func() accounts.Settings { return sets.Get().Pool }, func() routing.Settings { return sets.Get().Routing }),
-		Resets:     poller,
-		Updates:    updates,
-		Sealer:     sealer,
-		UI:         web.Dist(),
-		SetupToken: setupToken,
+		Resets:       poller,
+		ClaudeResets: claudePoller,
+		Updates:      updates,
+		Sealer:       sealer,
+		UI:           web.Dist(),
+		SetupToken:   setupToken,
 	})
 	srv := &http.Server{
 		Addr:              cfg.Addr(),

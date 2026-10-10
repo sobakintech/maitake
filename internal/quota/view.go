@@ -30,6 +30,7 @@ type View struct {
 	ShowUpdatedAt bool           `json:"showUpdatedAt"`
 	Providers     []ProviderView `json:"providers"`
 	CodexResets   *ResetsView    `json:"codexResets,omitempty"`
+	ClaudeResets  *ResetsView    `json:"claudeResets,omitempty"`
 	GeneratedAt   time.Time      `json:"generatedAt"`
 }
 
@@ -203,7 +204,12 @@ func itoa(i int) string {
 }
 
 // Build renders the quota page for one profile. Accounts the profile hides never reach the output.
-func Build(p Profile, page PageSettings, accounts []AccountInfo, codexResets *resets.Snapshot, now time.Time) View {
+// Feeds are the latest reset feed snapshots; either can be nil.
+type Feeds struct {
+	Codex, Claude *resets.Snapshot
+}
+
+func Build(p Profile, page PageSettings, accounts []AccountInfo, feeds Feeds, now time.Time) View {
 	view := View{
 		Title:         page.Title,
 		Notice:        page.Notice,
@@ -249,27 +255,38 @@ func Build(p Profile, page PageSettings, accounts []AccountInfo, codexResets *re
 		view.Providers = append(view.Providers, pv)
 	}
 
-	if slices.Contains(p.Providers, "codex") && codexResets != nil && codexResets.Status != nil {
-		st := codexResets.Status
-		rv := &ResetsView{}
-		if p.CodexResets.Latest {
-			rv.Latest = st.Latest
-		}
-		if p.CodexResets.Scheduled {
-			rv.Scheduled = st.Scheduled
-		}
-		if p.CodexResets.Forecast && st.Watch != nil && st.Watch.ExpiresAt.After(now) {
-			rv.Forecast = st.Watch
-		}
-		if p.CodexResets.Stats {
-			stats := st.Stats
-			rv.Stats = &stats
-		}
-		if rv.Latest != nil || rv.Scheduled != nil || rv.Forecast != nil || rv.Stats != nil {
-			view.CodexResets = rv
-		}
+	if slices.Contains(p.Providers, "claude") {
+		view.ClaudeResets = resetsView(p.ClaudeResets, feeds.Claude, now)
+	}
+	if slices.Contains(p.Providers, "codex") {
+		view.CodexResets = resetsView(p.CodexResets, feeds.Codex, now)
 	}
 	return view
+}
+
+func resetsView(d ResetsDisplay, snap *resets.Snapshot, now time.Time) *ResetsView {
+	if snap == nil || snap.Status == nil {
+		return nil
+	}
+	st := snap.Status
+	rv := &ResetsView{}
+	if d.Latest {
+		rv.Latest = st.Latest
+	}
+	if d.Scheduled {
+		rv.Scheduled = st.Scheduled
+	}
+	if d.Forecast && st.Watch != nil && st.Watch.ExpiresAt.After(now) {
+		rv.Forecast = st.Watch
+	}
+	if d.Stats {
+		stats := st.Stats
+		rv.Stats = &stats
+	}
+	if rv.Latest == nil && rv.Scheduled == nil && rv.Forecast == nil && rv.Stats == nil {
+		return nil
+	}
+	return rv
 }
 
 func (p *Profile) accountEntry(a AccountInfo, index int, now time.Time) EntryView {

@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { admin, errorMessage, type DisplayProfile, type Settings } from '#lib/api.js';
-	import { countdown, relativeTime, shortDateTime } from '#lib/format.js';
-	import { Separator } from '#lib/components/ui/separator/index.js';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import { relativeTime } from '#lib/format.js';
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -18,12 +16,12 @@
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { Draft } from '#lib/draft.svelte.js';
 	import UnsavedBar from '#lib/components/unsaved-bar.svelte';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import NewProfileDialog from './new-profile-dialog.svelte';
+	import ResetFeedCard from './reset-feed-card.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -40,6 +38,7 @@
 		try {
 			const next = draft.snapshot();
 			next.codexResets.intervalMinutes = Number(next.codexResets.intervalMinutes);
+			next.claudeResets.intervalMinutes = Number(next.claudeResets.intervalMinutes);
 			const { settings } = await admin.saveSettings(next);
 			draft.value = structuredClone(settings);
 			draft.commit();
@@ -56,13 +55,6 @@
 	function clearPublic() {
 		draft.base = { ...draft.base, quotaPage: { ...draft.base.quotaPage, publicProfileId: 0 } };
 		draft.value.quotaPage.publicProfileId = 0;
-	}
-
-	const resets = $derived(data.codexResets);
-	const feed = $derived(resets.status);
-
-	function capitalize(s: string) {
-		return s ? s[0].toUpperCase() + s.slice(1) : s;
 	}
 </script>
 
@@ -218,150 +210,26 @@
 		</Card.Content>
 	</Card.Root>
 
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Codex reset feed</Card.Title>
-			<Card.Description>
-				Announced and predicted global Codex resets from
-				<a
-					href="https://codex-resets.com"
-					target="_blank"
-					rel="noreferrer"
-					class="underline underline-offset-4">codex-resets.com</a
-				>. Profiles choose which parts to show.
-			</Card.Description>
-			<Card.Action>
-				<Button
-					size="sm"
-					variant="outline"
-					onclick={async () => {
-						await admin.refreshCodexResets();
-						setTimeout(() => invalidateAll(), 2500);
-					}}
-				>
-					<RefreshCwIcon /> Check now
-				</Button>
-			</Card.Action>
-		</Card.Header>
-		<Card.Content class="space-y-6">
-			<Field.Group>
-				<Field.Field orientation="horizontal">
-					<Field.Content>
-						<Field.Label for="cr-enabled">Fetch the feed</Field.Label>
-						<Field.Description>
-							maitake checks it in the background; visitors' browsers never contact it.
-						</Field.Description>
-					</Field.Content>
-					<Switch id="cr-enabled" bind:checked={form.codexResets.enabled} />
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="cr-interval">Check every (minutes)</Field.Label>
-					<Input
-						id="cr-interval"
-						type="number"
-						min={2}
-						max={1440}
-						class="w-32"
-						disabled={!form.codexResets.enabled}
-						bind:value={form.codexResets.intervalMinutes}
-					/>
-				</Field.Field>
-			</Field.Group>
+	<ResetFeedCard
+		name="Claude"
+		site="claude-resets.com"
+		description="Global Claude resets announced by Anthropic, including banked ones,"
+		snapshot={data.claudeResets}
+		bind:settings={form.claudeResets}
+		idPrefix="clr"
+		onRefresh={admin.refreshClaudeResets}
+	/>
 
-			<Separator />
-
-			<div class="space-y-4">
-				<div class="flex flex-wrap items-baseline justify-between gap-2">
-					<h3 class="text-sm font-medium">Latest data</h3>
-					<p class="text-xs text-muted-foreground">
-						{resets.fetchedAt ? `Checked ${relativeTime(resets.fetchedAt)}` : 'Not checked yet'}
-					</p>
-				</div>
-
-				{#if resets.error}
-					<div
-						class="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm"
-					>
-						<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
-						<p>
-							The last check failed: {resets.error}{#if resets.status}. Showing the last data that
-								loaded.{/if}
-						</p>
-					</div>
-				{/if}
-
-				{#if feed}
-					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-						{#snippet tile(label: string, value: string, detail?: string)}
-							<div class="rounded-lg border bg-muted/30 p-3">
-								<p class="text-xs text-muted-foreground">{label}</p>
-								<p class="mt-1 text-sm font-medium">{value}</p>
-								{#if detail}<p class="mt-0.5 text-xs text-muted-foreground">{detail}</p>{/if}
-							</div>
-						{/snippet}
-						{@render tile(
-							'Upcoming reset',
-							feed.scheduled_reset
-								? `${capitalize(feed.scheduled_reset.reset_type)} reset`
-								: 'None announced',
-							feed.scheduled_reset
-								? feed.scheduled_reset.scheduled_for
-									? `${shortDateTime(feed.scheduled_reset.scheduled_for)} · in ${countdown(feed.scheduled_reset.scheduled_for)}`
-									: 'Time not announced yet'
-								: undefined
-						)}
-						{@render tile(
-							'Last reset',
-							feed.latest_reset
-								? capitalize(relativeTime(feed.latest_reset.announced_at))
-								: 'None yet',
-							feed.latest_reset ? `${capitalize(feed.latest_reset.reset_type)} reset` : undefined
-						)}
-						{@render tile(
-							'Forecast',
-							feed.active_watch
-								? `${capitalize(feed.active_watch.level)}${feed.active_watch.reset_chance_percent !== null ? ` · ${feed.active_watch.reset_chance_percent}%` : ''}`
-								: 'Nothing predicted',
-							feed.active_watch?.forecast_window
-						)}
-						{@render tile(
-							'History',
-							`${feed.stats.total} resets`,
-							feed.stats.avg_interval_days !== null
-								? `About every ${feed.stats.avg_interval_days.toFixed(1)} days`
-								: undefined
-						)}
-					</div>
-
-					{#if feed.latest_reset}
-						<figure class="rounded-lg border-l-2 bg-muted/30 py-2 pr-3 pl-4">
-							<blockquote class="text-sm">{feed.latest_reset.text}</blockquote>
-							<figcaption class="mt-1 text-xs text-muted-foreground">
-								Latest announcement{#if feed.latest_reset.source.author}
-									by @{feed.latest_reset.source.author}{/if}
-								· {shortDateTime(feed.latest_reset.announced_at)}
-								{#if feed.latest_reset.source.url}
-									·
-									<a
-										href={feed.latest_reset.source.url}
-										target="_blank"
-										rel="noreferrer"
-										class="underline underline-offset-4">View post</a
-									>
-								{/if}
-							</figcaption>
-						</figure>
-					{/if}
-				{:else if !resets.error}
-					<p class="text-sm text-muted-foreground">
-						{form.codexResets.enabled
-							? 'No data yet. Use “Check now” to fetch it.'
-							: 'The feed is off.'}
-					</p>
-				{/if}
-			</div>
-		</Card.Content>
-	</Card.Root>
+	<ResetFeedCard
+		name="Codex"
+		site="codex-resets.com"
+		description="Announced and predicted global Codex resets"
+		snapshot={data.codexResets}
+		bind:settings={form.codexResets}
+		forecasts
+		idPrefix="cr"
+		onRefresh={admin.refreshCodexResets}
+	/>
 
 	<UnsavedBar dirty={draft.dirty} {saving} onSave={save} onReset={() => draft.reset()} />
 </div>

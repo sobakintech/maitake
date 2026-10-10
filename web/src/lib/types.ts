@@ -227,7 +227,8 @@ export type PageSettings = {
 export type Settings = {
 	quotaPage: PageSettings;
 	pool: PoolSettings;
-	codexResets: { enabled: boolean; intervalMinutes: number };
+	codexResets: FeedSettings;
+	claudeResets: FeedSettings;
 	usageRetentionDays: number;
 	routing: RoutingSettings;
 	keys: { storeCopies: boolean };
@@ -235,6 +236,8 @@ export type Settings = {
 	audit: AuditSettings;
 	updates: { enabled: boolean; intervalHours: number };
 };
+
+export type FeedSettings = { enabled: boolean; intervalMinutes: number };
 
 export type PoolSettings = {
 	quotaPollMinutes: number;
@@ -281,7 +284,8 @@ export type ProfileConfig = {
 	showUpdatedAt: boolean;
 	banked: 'count' | 'hidden' | 'count_expiry';
 	bankedMode: 'pooled' | 'accounts';
-	codexResets: { latest: boolean; scheduled: boolean; forecast: boolean; stats: boolean };
+	codexResets: ResetsDisplay;
+	claudeResets: ResetsDisplay;
 };
 
 export type DisplayProfile = {
@@ -322,7 +326,7 @@ export type EntryView = {
 
 export type ResetSource = { type: string; author?: string; url?: string };
 
-export type CodexReset = {
+export type FeedReset = {
 	id: string;
 	status?: string;
 	reset_type: 'regular' | 'banked';
@@ -330,9 +334,11 @@ export type CodexReset = {
 	scheduled_for?: string | null;
 	text: string;
 	source: ResetSource;
+	scope?: string;
+	usable_until?: string;
 };
 
-export type CodexWatch = {
+export type FeedWatch = {
 	level: 'elevated' | 'strong';
 	reset_chance_percent: number | null;
 	forecast_window: string;
@@ -342,7 +348,7 @@ export type CodexWatch = {
 	source: ResetSource;
 };
 
-export type CodexResetStats = {
+export type FeedStats = {
 	total: number;
 	last_reset_at: string | null;
 	days_since_last: number | null;
@@ -364,12 +370,8 @@ export type QuotaView = {
 	resetFormat: ProfileConfig['resetFormat'];
 	showUpdatedAt: boolean;
 	providers: ProviderView[];
-	codexResets?: {
-		latest?: CodexReset;
-		scheduled?: CodexReset;
-		forecast?: CodexWatch;
-		stats?: CodexResetStats;
-	};
+	codexResets?: ResetsView;
+	claudeResets?: ResetsView;
 	generatedAt: string;
 };
 
@@ -388,12 +390,19 @@ export type UpdatesSnapshot = {
 	error?: string;
 };
 
-export type CodexResetsSnapshot = {
+export type ResetsView = {
+	latest?: FeedReset;
+	scheduled?: FeedReset;
+	forecast?: FeedWatch;
+	stats?: FeedStats;
+};
+
+export type ResetsSnapshot = {
 	status: {
-		latest_reset: CodexReset | null;
-		scheduled_reset: CodexReset | null;
-		active_watch: CodexWatch | null;
-		stats: CodexResetStats;
+		latest_reset: FeedReset | null;
+		scheduled_reset: FeedReset | null;
+		active_watch: FeedWatch | null;
+		stats: FeedStats;
 	} | null;
 	fetchedAt: string | null;
 	error?: string;
@@ -487,4 +496,11 @@ export type Route = {
 	accounts?: number[];
 	strategy: Strategy;
 	inCatalog: boolean;
+};
+
+export type ResetsDisplay = {
+	latest: boolean;
+	scheduled: boolean;
+	forecast: boolean;
+	stats: boolean;
 };

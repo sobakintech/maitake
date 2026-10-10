@@ -77,12 +77,17 @@ type Profile struct {
 	Banked     string `json:"banked"`
 	BankedMode string `json:"bankedMode"`
 
-	CodexResets struct {
-		Latest    bool `json:"latest"`
-		Scheduled bool `json:"scheduled"`
-		Forecast  bool `json:"forecast"`
-		Stats     bool `json:"stats"`
-	} `json:"codexResets"`
+	CodexResets  ResetsDisplay `json:"codexResets"`
+	ClaudeResets ResetsDisplay `json:"claudeResets"`
+}
+
+// ResetsDisplay picks which parts of a reset feed a profile shows. The Claude feed has no
+// schedule or forecast.
+type ResetsDisplay struct {
+	Latest    bool `json:"latest"`
+	Scheduled bool `json:"scheduled"`
+	Forecast  bool `json:"forecast"`
+	Stats     bool `json:"stats"`
 }
 
 func DefaultProfile() Profile {

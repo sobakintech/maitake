@@ -30,7 +30,7 @@ func TestBuildFiltersServerSide(t *testing.T) {
 	p.Windows.Weekly = false
 	p.Banked = "count"
 
-	view := Build(p, DefaultPageSettings(), accounts, nil, now)
+	view := Build(p, DefaultPageSettings(), accounts, Feeds{}, now)
 	raw, _ := json.Marshal(view)
 	out := string(raw)
 	for _, leak := range []string{"secret.com", `"value"`, "resetsAt", "Weekly", `"expiries"`} {
@@ -60,7 +60,7 @@ func TestPoolAggregates(t *testing.T) {
 	for agg, want := range map[string]float64{"average": 60, "min": 40, "max": 80, "total": 1.2} {
 		p := DefaultProfile()
 		p.PoolAggregate = agg
-		v := Build(p, DefaultPageSettings(), accts, nil, now)
+		v := Build(p, DefaultPageSettings(), accts, Feeds{}, now)
 		if got := *v.Providers[0].Pool.Windows[0].Value; got != want {
 			t.Errorf("%s: got %v want %v", agg, got, want)
 		}

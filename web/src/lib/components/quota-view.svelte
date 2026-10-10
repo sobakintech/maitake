@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { EntryView, QuotaView, WindowView, BankedView } from '#lib/types.js';
+	import type { EntryView, QuotaView, WindowView, BankedView, ResetsView } from '#lib/types.js';
 	import { countdown, money, relativeTime, shortDateTime } from '#lib/format.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -157,70 +157,84 @@
 		<p class="text-sm text-muted-foreground">Nothing to show.</p>
 	{/each}
 
+	{#if view.claudeResets}
+		{@render feed(view.claudeResets, 'Claude', 'Anthropic', 'claude-resets.com')}
+	{/if}
 	{#if view.codexResets}
-		{@const r = view.codexResets}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Codex resets</Card.Title>
-				<Card.Description>
-					Global limit resets announced by OpenAI, via
-					<a
-						href="https://codex-resets.com"
-						target="_blank"
-						rel="noreferrer"
-						class="underline underline-offset-4">codex-resets.com</a
-					>
-				</Card.Description>
-			</Card.Header>
-			<Card.Content class="space-y-4 text-sm">
-				{#if r.scheduled}
-					<div class="flex gap-3">
-						<CalendarClockIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-						<div>
-							<p class="font-medium">
-								Upcoming {r.scheduled.reset_type} reset{#if r.scheduled.scheduled_for}
-									· {shortDateTime(r.scheduled.scheduled_for)} ({countdown(
-										r.scheduled.scheduled_for
-									)}){/if}
-							</p>
-							<p class="text-muted-foreground">{r.scheduled.text}</p>
-						</div>
-					</div>
-				{/if}
-				{#if r.forecast}
-					<div class="flex gap-3">
-						<RadarIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-						<div>
-							<p class="font-medium">
-								Forecast: {r.forecast.level} chance{#if r.forecast.reset_chance_percent !== null}
-									({r.forecast.reset_chance_percent}%){/if} · {r.forecast.forecast_window}
-							</p>
-							<p class="text-muted-foreground">{r.forecast.text}</p>
-							<p class="text-xs text-muted-foreground">
-								An AI-made guess, not an OpenAI announcement.
-							</p>
-						</div>
-					</div>
-				{/if}
-				{#if r.latest}
-					<div class="flex gap-3">
-						<HistoryIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-						<div>
-							<p class="font-medium">
-								Last {r.latest.reset_type} reset {relativeTime(r.latest.announced_at)}
-							</p>
-							<p class="text-muted-foreground">{r.latest.text}</p>
-						</div>
-					</div>
-				{/if}
-				{#if r.stats}
-					<p class="text-muted-foreground">
-						{r.stats.total} resets so far{#if r.stats.avg_interval_days !== null}
-							· about every {r.stats.avg_interval_days.toFixed(1)} days{/if}{#if r.stats.days_since_last !== null}
-							· last one {r.stats.days_since_last.toFixed(1)} days ago{/if}
-					</p>
-				{/if}
-			</Card.Content>
-		</Card.Root>
+		{@render feed(view.codexResets, 'Codex', 'OpenAI', 'codex-resets.com')}
 	{/if}
 </div>
+
+{#snippet feed(r: ResetsView, name: string, vendor: string, site: string)}
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>{name} resets</Card.Title>
+			<Card.Description>
+				Global limit resets announced by {vendor}, via
+				<a
+					href="https://{site}"
+					target="_blank"
+					rel="noreferrer"
+					class="underline underline-offset-4">{site}</a
+				>
+			</Card.Description>
+		</Card.Header>
+		<Card.Content class="space-y-4 text-sm">
+			{#if r.scheduled}
+				<div class="flex gap-3">
+					<CalendarClockIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+					<div>
+						<p class="font-medium">
+							Upcoming {r.scheduled.reset_type} reset{#if r.scheduled.scheduled_for}
+								· {shortDateTime(r.scheduled.scheduled_for)} ({countdown(
+									r.scheduled.scheduled_for
+								)}){/if}
+						</p>
+						<p class="text-muted-foreground">{r.scheduled.text}</p>
+					</div>
+				</div>
+			{/if}
+			{#if r.forecast}
+				<div class="flex gap-3">
+					<RadarIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+					<div>
+						<p class="font-medium">
+							Forecast: {r.forecast.level} chance{#if r.forecast.reset_chance_percent !== null}
+								({r.forecast.reset_chance_percent}%){/if} · {r.forecast.forecast_window}
+						</p>
+						<p class="text-muted-foreground">{r.forecast.text}</p>
+						<p class="text-xs text-muted-foreground">
+							An AI-made guess, not an {vendor} announcement.
+						</p>
+					</div>
+				</div>
+			{/if}
+			{#if r.latest}
+				<div class="flex gap-3">
+					<HistoryIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+					<div>
+						<p class="font-medium">
+							Last {r.latest.reset_type} reset {relativeTime(
+								r.latest.announced_at
+							)}{#if r.latest.scope}
+								· {r.latest.scope}{/if}
+						</p>
+						<p class="text-muted-foreground">{r.latest.text}</p>
+						{#if r.latest.usable_until && new Date(r.latest.usable_until).getTime() > Date.now()}
+							<p class="text-xs text-muted-foreground">
+								Usable until {expiryText(r.latest.usable_until)}
+							</p>
+						{/if}
+					</div>
+				</div>
+			{/if}
+			{#if r.stats}
+				<p class="text-muted-foreground">
+					{r.stats.total} resets so far{#if r.stats.avg_interval_days !== null}
+						· about every {r.stats.avg_interval_days.toFixed(1)} days{/if}{#if r.stats.days_since_last !== null}
+						· last one {r.stats.days_since_last.toFixed(1)} days ago{/if}
+				</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+{/snippet}

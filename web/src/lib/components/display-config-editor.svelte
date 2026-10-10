@@ -276,7 +276,7 @@
 		</Card.Root>
 
 		<Card.Root>
-			<Card.Header><Card.Title>Codex extras</Card.Title></Card.Header>
+			<Card.Header><Card.Title>Resets</Card.Title></Card.Header>
 			<Card.Content>
 				<Field.Group>
 					<Field.Set>
@@ -306,6 +306,23 @@
 							)}
 						</Field.Set>
 					{/if}
+					<Field.Set>
+						<Field.Legend variant="label">claude-resets.com feed</Field.Legend>
+						<div class="grid gap-2.5 sm:grid-cols-2">
+							{@render check(
+								'clr-latest',
+								'Most recent reset',
+								config.claudeResets.latest,
+								(v) => (config.claudeResets.latest = v)
+							)}
+							{@render check(
+								'clr-stats',
+								'Reset statistics',
+								config.claudeResets.stats,
+								(v) => (config.claudeResets.stats = v)
+							)}
+						</div>
+					</Field.Set>
 					<Field.Set>
 						<Field.Legend variant="label">codex-resets.com feed</Field.Legend>
 						<div class="grid gap-2.5 sm:grid-cols-2">

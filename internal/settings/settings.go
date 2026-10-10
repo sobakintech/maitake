@@ -21,6 +21,7 @@ type Settings struct {
 	QuotaPage          quota.PageSettings   `json:"quotaPage"`
 	Pool               accounts.Settings    `json:"pool"`
 	CodexResets        resets.Settings      `json:"codexResets"`
+	ClaudeResets       resets.Settings      `json:"claudeResets"`
 	UsageRetentionDays int                  `json:"usageRetentionDays"`
 	Routing            routing.Settings     `json:"routing"`
 	Keys               KeySettings          `json:"keys"`
@@ -39,6 +40,7 @@ func Defaults() Settings {
 		QuotaPage:          quota.DefaultPageSettings(),
 		Pool:               accounts.DefaultSettings(),
 		CodexResets:        resets.DefaultSettings(),
+		ClaudeResets:       resets.DefaultSettings(),
 		UsageRetentionDays: 90,
 		Routing:            routing.DefaultSettings(),
 		Keys:               KeySettings{StoreCopies: true},
@@ -52,6 +54,7 @@ func (s *Settings) Normalize() {
 	s.QuotaPage.Normalize()
 	s.Pool.Normalize()
 	s.CodexResets.Normalize()
+	s.ClaudeResets.Normalize()
 	s.Routing.Normalize()
 	s.Claude.Normalize()
 	s.Audit.Normalize()

@@ -1,4 +1,4 @@
-import type { Account, CodexResetsSnapshot, Provider } from './types.js';
+import type { Account, ResetsSnapshot, Provider } from './types.js';
 import type { OwnedKey } from './api.js';
 
 export type EventKind = 'limit' | 'banked' | 'subscription' | 'key' | 'cooldown' | 'codex';
@@ -25,7 +25,7 @@ export const kinds: { id: EventKind; label: string }[] = [
 export function buildEvents(
 	accounts: Account[],
 	keys: OwnedKey[],
-	resets: CodexResetsSnapshot | null,
+	resets: ResetsSnapshot | null,
 	now = new Date()
 ): TimelineEvent[] {
 	const out: TimelineEvent[] = [];

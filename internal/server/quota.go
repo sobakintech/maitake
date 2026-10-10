@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sobakintech/maitake/internal/quota"
+	"github.com/sobakintech/maitake/internal/resets"
 	"github.com/sobakintech/maitake/internal/secret"
 	"github.com/sobakintech/maitake/internal/settings"
 	"github.com/sobakintech/maitake/internal/store"
@@ -37,6 +38,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if saved.CodexResets != prev.CodexResets {
 		s.resets.Refresh()
+	}
+	if saved.ClaudeResets != prev.ClaudeResets {
+		s.claudeResets.Refresh()
 	}
 	if saved.Updates != prev.Updates {
 		s.updates.Wake()
@@ -159,18 +163,26 @@ func (s *Server) previewProfile(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
-	snap := s.resets.Snapshot()
-	view := quota.Build(quota.ParseProfile(body.Config), s.settings.Get().QuotaPage, s.accounts.QuotaInfos(), &snap, time.Now())
+	view := quota.Build(quota.ParseProfile(body.Config), s.settings.Get().QuotaPage, s.accounts.QuotaInfos(), s.feeds(), time.Now())
 	writeJSON(w, http.StatusOK, map[string]any{"view": view})
 }
 
-func (s *Server) codexResets(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"codexResets": s.resets.Snapshot()})
+func (s *Server) feeds() quota.Feeds {
+	codex, claude := s.resets.Snapshot(), s.claudeResets.Snapshot()
+	return quota.Feeds{Codex: &codex, Claude: &claude}
 }
 
-func (s *Server) refreshCodexResets(w http.ResponseWriter, r *http.Request) {
-	s.resets.Refresh()
-	w.WriteHeader(http.StatusAccepted)
+func resetFeed(p *resets.Poller, key string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{key: p.Snapshot()})
+	}
+}
+
+func refreshResetFeed(p *resets.Poller) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p.Refresh()
+		w.WriteHeader(http.StatusAccepted)
+	}
 }
 
 // quotaMeta tells the public page whether it's enabled and whether it needs a key, without auth.
@@ -225,8 +237,7 @@ func (s *Server) publicQuota(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "an API key is required to view this page")
 		return
 	}
-	snap := s.resets.Snapshot()
-	view := quota.Build(*profile, page, s.accounts.QuotaInfos(), &snap, time.Now())
+	view := quota.Build(*profile, page, s.accounts.QuotaInfos(), s.feeds(), time.Now())
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]any{"view": view})
 }

@@ -28,32 +28,34 @@ import (
 )
 
 type Deps struct {
-	Config     *config.Config
-	Store      *store.Store
-	Settings   *settings.Store
-	Accounts   *accounts.Manager
-	Claude     *claude.Provider
-	Codex      *codex.Provider
-	Proxy      *proxy.Handler
-	Resets     *resets.Poller
-	Updates    *update.Checker
-	Sealer     *secret.Sealer
-	UI         fs.FS
-	SetupToken string
+	Config       *config.Config
+	Store        *store.Store
+	Settings     *settings.Store
+	Accounts     *accounts.Manager
+	Claude       *claude.Provider
+	Codex        *codex.Provider
+	Proxy        *proxy.Handler
+	Resets       *resets.Poller
+	ClaudeResets *resets.Poller
+	Updates      *update.Checker
+	Sealer       *secret.Sealer
+	UI           fs.FS
+	SetupToken   string
 }
 
 type Server struct {
-	cfg      *config.Config
-	store    *store.Store
-	settings *settings.Store
-	accounts *accounts.Manager
-	claude   *claude.Provider
-	codex    *codex.Provider
-	resets   *resets.Poller
-	updates  *update.Checker
-	sealer   *secret.Sealer
-	oauth    oauthSessions
-	logins   *failureLimiter
+	cfg          *config.Config
+	store        *store.Store
+	settings     *settings.Store
+	accounts     *accounts.Manager
+	claude       *claude.Provider
+	codex        *codex.Provider
+	resets       *resets.Poller
+	claudeResets *resets.Poller
+	updates      *update.Checker
+	sealer       *secret.Sealer
+	oauth        oauthSessions
+	logins       *failureLimiter
 
 	mu         sync.Mutex
 	setupToken string // non-empty until the first admin is created
@@ -61,7 +63,7 @@ type Server struct {
 
 func New(d Deps) http.Handler {
 	s := &Server{cfg: d.Config, store: d.Store, settings: d.Settings, accounts: d.Accounts, claude: d.Claude,
-		codex: d.Codex, resets: d.Resets, updates: d.Updates, sealer: d.Sealer, setupToken: d.SetupToken,
+		codex: d.Codex, resets: d.Resets, claudeResets: d.ClaudeResets, updates: d.Updates, sealer: d.Sealer, setupToken: d.SetupToken,
 		logins: newFailureLimiter(d.Config.Auth.LoginRateLimit.Attempts, d.Config.Auth.LoginRateLimit.Window)}
 
 	r := chi.NewRouter()
@@ -135,8 +137,10 @@ func New(d Deps) http.Handler {
 			r.Post("/profiles/preview", s.previewProfile)
 			r.Patch("/profiles/{id}", s.updateProfile)
 			r.Delete("/profiles/{id}", s.deleteProfile)
-			r.Get("/codex-resets", s.codexResets)
-			r.Post("/codex-resets/refresh", s.refreshCodexResets)
+			r.Get("/codex-resets", resetFeed(s.resets, "codexResets"))
+			r.Post("/codex-resets/refresh", refreshResetFeed(s.resets))
+			r.Get("/claude-resets", resetFeed(s.claudeResets, "claudeResets"))
+			r.Post("/claude-resets/refresh", refreshResetFeed(s.claudeResets))
 			r.Get("/updates", s.getUpdates)
 			r.Post("/updates/check", s.checkUpdates)
 		})

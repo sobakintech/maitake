@@ -10,7 +10,7 @@ import type {
 	RoutingSettings,
 	Account,
 	AccountPatch,
-	CodexResetsSnapshot,
+	ResetsSnapshot,
 	DisplayProfile,
 	ProfileConfig,
 	Provider,
@@ -265,8 +265,11 @@ export const admin = {
 	previewProfile: (config: ProfileConfig) =>
 		request<{ view: QuotaView }>('POST', '/admin/profiles/preview', { config }),
 	codexResets: (f?: typeof fetch) =>
-		request<{ codexResets: CodexResetsSnapshot }>('GET', '/admin/codex-resets', undefined, f),
+		request<{ codexResets: ResetsSnapshot }>('GET', '/admin/codex-resets', undefined, f),
 	refreshCodexResets: () => request<void>('POST', '/admin/codex-resets/refresh'),
+	claudeResets: (f?: typeof fetch) =>
+		request<{ claudeResets: ResetsSnapshot }>('GET', '/admin/claude-resets', undefined, f),
+	refreshClaudeResets: () => request<void>('POST', '/admin/claude-resets/refresh'),
 	updates: (f?: typeof fetch) =>
 		request<{ updates: UpdatesSnapshot }>('GET', '/admin/updates', undefined, f),
 	checkUpdates: () => request<{ updates: UpdatesSnapshot }>('POST', '/admin/updates/check')
