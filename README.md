@@ -9,7 +9,7 @@
   <sub>舞茸, Japanese for the “dancing mushroom”</sub>
 </p>
 
-A multi-user proxy that serves Claude Code and Codex (ChatGPT) subscriptions as Claude Messages, OpenAI Chat Completions and OpenAI Responses APIs, with a built-in admin dashboard. Inspired by [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI).
+A multi-user proxy that serves AI subscriptions (ChatGPT, Claude and more) as Claude Messages, OpenAI Chat Completions and OpenAI Responses APIs, with a built-in admin dashboard. Inspired by [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI).
 
 ![The maitake admin dashboard overview, with request stats, requests per hour and per-account limits](docs/overview.jpg)
 
@@ -62,10 +62,10 @@ Behind a reverse proxy, set `MAITAKE_TRUSTED_PROXIES` so client IPs and HTTPS ar
 
 | Path | Format |
 | --- | --- |
-| `POST /v1/messages` | Claude Messages (Claude and Codex models) |
+| `POST /v1/messages` | Claude Messages (any model) |
 | `POST /v1/messages/count_tokens` | Claude token counting |
-| `POST /v1/chat/completions` | OpenAI Chat Completions (Claude and Codex models) |
-| `POST /v1/responses` | OpenAI Responses (Claude and Codex models); `GET` upgrades to the WebSocket transport |
+| `POST /v1/chat/completions` | OpenAI Chat Completions (any model) |
+| `POST /v1/responses` | OpenAI Responses (any model); `GET` upgrades to the WebSocket transport |
 | `POST /v1/responses/input_tokens` | Responses token counting |
 | `POST /v1/responses/compact` | Codex history compaction |
 | `POST /v1/images/generations`, `/v1/images/edits` | OpenAI Images, drawn by Codex's image tool |
