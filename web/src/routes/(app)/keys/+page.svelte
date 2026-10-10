@@ -81,6 +81,7 @@
 			<KeysTable
 				keys={visible}
 				profiles={data.profiles}
+				usage={data.keyUsage}
 				showOwner
 				empty={data.keys.length ? 'No keys match.' : 'No keys yet.'}
 			/>

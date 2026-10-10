@@ -102,7 +102,7 @@
 			</Card.Action>
 		</Card.Header>
 		<Card.Content>
-			<KeysTable keys={data.keys} profiles={data.profiles} />
+			<KeysTable keys={data.keys} profiles={data.profiles} usage={data.keyUsage} />
 		</Card.Content>
 	</Card.Root>
 

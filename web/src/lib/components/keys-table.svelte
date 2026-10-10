@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { api, errorMessage, type ApiKey, type DisplayProfile, type OwnedKey } from '#lib/api.js';
-	import { dateTime, relativeTime } from '#lib/format.js';
+	import {
+		api,
+		errorMessage,
+		type ApiKey,
+		type DisplayProfile,
+		type OwnedKey,
+		type UsageBucket
+	} from '#lib/api.js';
+	import { compact, dateTime, integer, relativeTime } from '#lib/format.js';
+	import { totalTokens } from '#lib/series.js';
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -17,13 +25,18 @@
 		keys,
 		profiles,
 		showOwner = false,
-		empty = 'No keys yet.'
+		empty = 'No keys yet.',
+		usage
 	}: {
 		keys: (ApiKey | OwnedKey)[];
 		profiles: DisplayProfile[];
 		showOwner?: boolean;
 		empty?: string;
+		// Per-key usage buckets (keyed by key id) for the "Last 7 days" column.
+		usage?: UsageBucket[];
 	} = $props();
+
+	const usageByKey = $derived(new Map(usage?.map((b) => [Number(b.key), b])));
 
 	let deleting = $state<ApiKey | null>(null);
 
@@ -78,6 +91,7 @@
 				<Table.Head>Key</Table.Head>
 				<Table.Head>Created</Table.Head>
 				<Table.Head>Last used</Table.Head>
+				{#if usage}<Table.Head class="text-right">Last 7 days</Table.Head>{/if}
 				<Table.Head>Expires</Table.Head>
 				<Table.Head>Enabled</Table.Head>
 				<Table.Head class="w-0"></Table.Head>
@@ -112,6 +126,17 @@
 						{relativeTime(key.createdAt)}
 					</Table.Cell>
 					<Table.Cell class="text-muted-foreground">{relativeTime(key.lastUsedAt)}</Table.Cell>
+					{#if usage}
+						{@const u = usageByKey.get(key.id)}
+						<Table.Cell class="text-right whitespace-nowrap tabular-nums">
+							{#if u}
+								<a href="/keys/{key.id}" class="hover:underline">{integer(u.requests)} req</a>
+								<p class="text-xs text-muted-foreground">{compact(totalTokens(u))} tokens</p>
+							{:else}
+								<span class="text-muted-foreground">—</span>
+							{/if}
+						</Table.Cell>
+					{/if}
 					<Table.Cell
 						class="text-muted-foreground"
 						title={key.expiresAt ? dateTime(key.expiresAt) : undefined}
