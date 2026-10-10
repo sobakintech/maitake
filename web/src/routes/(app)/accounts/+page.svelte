@@ -65,13 +65,12 @@
 
 	async function refreshOne(a: Account) {
 		refreshingIds[a.id] = true;
-		const id = toast.loading(`Refreshing ${a.label}…`);
 		try {
 			await admin.refreshAccount(a.id);
 			await invalidateAll();
-			toast.success('Token and limits refreshed', { id });
+			toast.success(`Refreshed ${a.label}`);
 		} catch (e) {
-			toast.error(errorMessage(e), { id });
+			toast.error(errorMessage(e));
 		} finally {
 			refreshingIds[a.id] = false;
 		}
@@ -79,20 +78,18 @@
 
 	async function refreshAll() {
 		refreshing = true;
-		const id = toast.loading('Refreshing all accounts…');
 		try {
 			const { refreshed, failed } = await admin.refreshAll();
 			await invalidateAll();
 			if (failed.length === 0) {
-				toast.success(`Refreshed ${refreshed} ${refreshed === 1 ? 'account' : 'accounts'}`, { id });
+				toast.success(`Refreshed ${refreshed} ${refreshed === 1 ? 'account' : 'accounts'}`);
 			} else {
 				toast.warning(`Refreshed ${refreshed}, ${failed.length} failed`, {
-					id,
 					description: failed.map((f) => `${f.label}: ${f.error}`).join('; ')
 				});
 			}
 		} catch (e) {
-			toast.error(errorMessage(e), { id });
+			toast.error(errorMessage(e));
 		} finally {
 			refreshing = false;
 		}
