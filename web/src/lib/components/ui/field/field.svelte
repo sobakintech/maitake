@@ -5,7 +5,7 @@
 		base: 'data-[invalid=true]:text-destructive gap-2 group/field flex w-full',
 		variants: {
 			orientation: {
-				vertical: 'flex-col *:w-full [&>.sr-only]:w-auto',
+				vertical: 'flex-col [:where(&>*)]:w-full [&>.sr-only]:w-auto',
 				horizontal:
 					'flex-row items-center has-[>[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px',
 				responsive:
