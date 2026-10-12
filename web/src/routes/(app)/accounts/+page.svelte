@@ -310,7 +310,7 @@
 								{#if a.quota?.banked}
 									<BankedResets account={a} />
 								{/if}
-								{#if a.quota?.extra && (a.quota.extra.enabled || a.quota.extra.balance)}
+								{#if a.quota?.extra && (a.quota.extra.enabled || a.quota.extra.balance) && (a.quota.extra.unlimited || Number(a.quota.extra.balance ?? 1) !== 0)}
 									<p class="text-xs text-muted-foreground">
 										{a.provider === 'claude' ? 'Extra usage' : 'Credits'}:
 										{a.quota.extra.unlimited
@@ -324,16 +324,16 @@
 								{/if}
 							</Card.Content>
 							<Card.Footer class="flex items-center gap-3 text-xs text-muted-foreground">
-								<div class="flex flex-1 flex-wrap gap-x-4 gap-y-1">
-									<span>Limits {relativeTime(a.quotaUpdatedAt, 'not checked yet')}</span>
-									<span>Used {relativeTime(a.lastUsedAt)}</span>
-									{#if a.tokenExpiresAt}<span>Token refreshes {relativeTime(a.tokenExpiresAt)}</span
-										>{/if}
-								</div>
+								<span class="flex-1">
+									{a.lastUsedAt ? `Last used ${relativeTime(a.lastUsedAt)}` : 'Not used yet'}
+								</span>
 								<Button
 									variant="ghost"
 									size="sm"
 									class="-my-1 -mr-2 shrink-0 text-muted-foreground"
+									title={a.quotaUpdatedAt
+										? `Limits checked ${relativeTime(a.quotaUpdatedAt)}`
+										: 'Limits not checked yet'}
 									disabled={refreshingIds[a.id]}
 									onclick={() => refreshOne(a)}
 								>
