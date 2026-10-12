@@ -115,7 +115,18 @@ func (w *usageWindow) toWindow(id string, now time.Time) quota.Window {
 	if w.ResetAfterSeconds != nil {
 		resetAfter = strconv.FormatFloat(*w.ResetAfterSeconds, 'f', 0, 64)
 	}
-	return windowFrom(id, w.UsedPercent, w.LimitWindowSeconds/60, resetAt, resetAfter, now)
+	win := windowFrom(id, w.UsedPercent, w.LimitWindowSeconds/60, resetAt, resetAfter, now)
+	if w.idle() {
+		win.ResetsAt = nil
+	}
+	return win
+}
+
+// idle reports a window that hasn't started: unused, with a reset a full window away that slides
+// forward on every poll until the first request anchors it.
+func (w *usageWindow) idle() bool {
+	return w.UsedPercent == 0 && w.LimitWindowSeconds > 0 && w.ResetAfterSeconds != nil &&
+		*w.ResetAfterSeconds >= float64(w.LimitWindowSeconds)-3
 }
 
 // FetchQuota polls /wham/usage (the data behind ChatGPT's Codex usage page) plus banked reset credits.

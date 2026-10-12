@@ -41,7 +41,10 @@
 				level={level(r)}
 				values={values(w, r)}
 				resetsAt={w.resetsAt}
-				detail={w.detail}
+				detail={w.detail ??
+					(w.kind === 'session' && !w.resetsAt && !w.usedPercent
+						? 'Not started; the next request starts it'
+						: undefined)}
 			/>
 		{/each}
 	</div>
