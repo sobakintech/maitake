@@ -196,7 +196,7 @@
 	{/each}
 </datalist>
 
-<div class="mx-auto max-w-6xl space-y-6">
+<div class="space-y-6">
 	<div>
 		<h1 class="text-xl font-semibold tracking-tight">Models</h1>
 		<p class="text-sm text-muted-foreground">
