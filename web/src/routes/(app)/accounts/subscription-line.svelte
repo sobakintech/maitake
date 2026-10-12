@@ -46,7 +46,7 @@
 		{text}
 	</p>
 {/if}
-{#if account.hasWebSession && sub?.webError}
+{#if account.hasWebSession && sub?.webError && !sub.webExpired}
 	<p class="flex items-center gap-1.5 text-xs" style="color: var(--viz-warning)">
 		<TriangleAlertIcon class="size-3.5 shrink-0" />
 		Couldn't read the renewal date: {sub.webError}

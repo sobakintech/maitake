@@ -77,6 +77,7 @@ export type Subscription = {
 	billing?: string;
 	checkedAt: string;
 	webError?: string;
+	webExpired?: boolean;
 };
 
 export type AccountPatch = Partial<Pick<Account, 'label' | 'alias' | 'disabled' | 'priority'>> & {

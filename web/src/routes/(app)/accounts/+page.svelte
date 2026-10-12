@@ -24,6 +24,7 @@
 	import BankedResets from './banked-resets.svelte';
 	import SubscriptionLine from './subscription-line.svelte';
 	import ServerIcon from '@lucide/svelte/icons/server';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -52,6 +53,13 @@
 		if (v === 'all') url.searchParams.delete('provider');
 		else url.searchParams.set('provider', v);
 		goto(url, { replace: true, reset: false });
+	}
+
+	let editFocus = $state<'session' | undefined>();
+	function edit(a: Account, focus?: 'session') {
+		editing = a;
+		editFocus = focus;
+		editOpen = true;
 	}
 
 	// Keep quota bars and countdowns current while the page is open.
@@ -225,14 +233,7 @@
 											{/snippet}
 										</DropdownMenu.Trigger>
 										<DropdownMenu.Content align="end">
-											<DropdownMenu.Item
-												onSelect={() => {
-													editing = a;
-													editOpen = true;
-												}}
-											>
-												Edit
-											</DropdownMenu.Item>
+											<DropdownMenu.Item onSelect={() => edit(a)}>Edit</DropdownMenu.Item>
 											<DropdownMenu.Item
 												onSelect={() =>
 													act(
@@ -251,6 +252,23 @@
 								</Card.Action>
 							</Card.Header>
 							<Card.Content class="space-y-4">
+								{#if a.hasWebSession && a.subscription?.webExpired}
+									<div
+										class="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm"
+									>
+										<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
+										<p class="flex-1">
+											The claude.ai session expired, so the renewal date can't be read. Connect a
+											new one.
+										</p>
+										<Button
+											size="xs"
+											variant="outline"
+											class="shrink-0"
+											onclick={() => edit(a, 'session')}>Reconnect</Button
+										>
+									</div>
+								{/if}
 								{#if a.statusMessage && a.status !== 'ok'}
 									<p class="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
 										{a.statusMessage}
@@ -310,7 +328,12 @@
 </div>
 
 <AddAccountDialog bind:open={addOpen} provider={tab === 'all' ? 'claude' : tab} />
-<EditAccountDialog account={editing} bind:open={editOpen} defaultOn={data.redeemDefault} />
+<EditAccountDialog
+	account={editing}
+	bind:open={editOpen}
+	focus={editFocus}
+	defaultOn={data.redeemDefault}
+/>
 
 <AlertDialog.Root open={deleting !== null} onOpenChange={(v) => !v && (deleting = null)}>
 	<AlertDialog.Content>

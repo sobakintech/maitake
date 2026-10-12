@@ -2,6 +2,7 @@ package claude
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/sobakintech/maitake/internal/provider"
@@ -21,8 +22,11 @@ func (p *Provider) Subscription(ctx context.Context, c provider.Credentials) (*p
 		CheckedAt: time.Now().UTC(),
 	}
 	if c.WebSession != "" {
-		if until, err := p.webRenewal(ctx, c.WebSession, prof.Organization.UUID); err != nil {
+		until, renewed, err := p.webRenewal(ctx, c.WebSession, prof.Organization.UUID)
+		sub.RenewedSession = renewed
+		if err != nil {
 			sub.WebError = err.Error()
+			sub.WebExpired = errors.Is(err, ErrWebSessionExpired)
 		} else {
 			sub.Until = until
 		}

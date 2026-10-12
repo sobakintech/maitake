@@ -16,6 +16,11 @@ type Subscription struct {
 	CheckedAt time.Time  `json:"checkedAt"`
 	// WebError explains why the renewal date couldn't be read through a web session.
 	WebError string `json:"webError,omitempty"`
+	// WebExpired means the web session no longer works and needs replacing.
+	WebExpired bool `json:"webExpired,omitempty"`
+	// RenewedSession is a fresh web session the provider handed out, to be stored in place
+	// of the old one.
+	RenewedSession string `json:"-"`
 }
 
 // SubscriptionSource is implemented by providers that can report subscription details.

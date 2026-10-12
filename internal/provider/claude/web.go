@@ -74,15 +74,33 @@ var WebBase = "https://claude.ai"
 var renewalKeys = []string{"next_charge_date", "next_billing_date", "next_payment_date", "next_invoice_date",
 	"renewal_date", "renews_at", "current_period_end", "billing_period_end", "period_end"}
 
-// webRenewal reads the next charge date from claude.ai's subscription details.
-func (p *Provider) webRenewal(ctx context.Context, session, orgUUID string) (*time.Time, error) {
+// ErrWebSessionExpired means claude.ai no longer accepts the session, e.g. after signing out.
+var ErrWebSessionExpired = errors.New("the claude.ai session is expired, signed out, or belongs to another account")
+
+// sessionKey pulls the sessionKey value out of a pasted cookie or bare key.
+func sessionKey(session string) string {
+	session = strings.TrimSpace(session)
+	if !strings.Contains(session, "=") {
+		return session
+	}
+	for _, part := range strings.Split(session, ";") {
+		if k, v, ok := strings.Cut(strings.TrimSpace(part), "="); ok && k == "sessionKey" {
+			return v
+		}
+	}
+	return ""
+}
+
+// webRenewal reads the next charge date from claude.ai's subscription details. When claude.ai
+// hands out a fresh session key on the way, it's returned as renewed.
+func (p *Provider) webRenewal(ctx context.Context, session, orgUUID string) (until *time.Time, renewed string, err error) {
 	if orgUUID == "" {
-		return nil, errors.New("organization unknown")
+		return nil, "", errors.New("organization unknown")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		WebBase+"/api/organizations/"+orgUUID+"/subscription_details", nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	cookie := strings.TrimSpace(session)
 	if !strings.Contains(cookie, "=") {
@@ -102,31 +120,42 @@ func (p *Provider) webRenewal(ctx context.Context, session, orgUUID string) (*ti
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
+	for _, ck := range resp.Cookies() {
+		if ck.Name != "sessionKey" {
+			continue
+		}
+		if ck.Value == "" || ck.MaxAge < 0 || (!ck.Expires.IsZero() && ck.Expires.Before(time.Now())) {
+			return nil, "", ErrWebSessionExpired
+		}
+		if ck.Value != sessionKey(session) {
+			renewed = ck.Value
+		}
+	}
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized,
 		resp.StatusCode == http.StatusForbidden && strings.Contains(string(body), `"type":"error"`):
-		return nil, errors.New("the claude.ai session is expired or belongs to another account")
+		return nil, "", ErrWebSessionExpired
 	case resp.StatusCode == http.StatusNotFound:
-		return nil, errors.New("this claude.ai session can't see this account's organization")
+		return nil, renewed, errors.New("this claude.ai session can't see this account's organization")
 	case resp.StatusCode != http.StatusOK:
 		if strings.Contains(string(body), "Just a moment") || strings.Contains(string(body), "cf-") {
-			return nil, errors.New("claude.ai blocked the request (Cloudflare)")
+			return nil, renewed, errors.New("claude.ai blocked the request (Cloudflare)")
 		}
-		return nil, fmt.Errorf("claude.ai returned %d", resp.StatusCode)
+		return nil, renewed, fmt.Errorf("claude.ai returned %d", resp.StatusCode)
 	}
 	var data any
 	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, errors.New("claude.ai returned something other than JSON")
+		return nil, renewed, errors.New("claude.ai returned something other than JSON")
 	}
 	found := map[string]any{}
 	collectKeys(data, found)
 	for _, k := range renewalKeys {
 		if t := parseDate(found[k]); t != nil {
-			return t, nil
+			return t, renewed, nil
 		}
 	}
 	keys := make([]string, 0, len(found))
@@ -135,7 +164,7 @@ func (p *Provider) webRenewal(ctx context.Context, session, orgUUID string) (*ti
 	}
 	sort.Strings(keys)
 	slog.Warn("claude.ai subscription details had no renewal date", "fields", strings.Join(keys, ","))
-	return nil, errors.New("claude.ai didn't include a renewal date")
+	return nil, renewed, errors.New("claude.ai didn't include a renewal date")
 }
 
 // collectKeys flattens every key in a JSON document, keeping the first value seen for each.

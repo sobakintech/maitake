@@ -13,12 +13,20 @@
 	import ProviderLogo from '#lib/components/provider-logo.svelte';
 	import { toast } from 'svelte-sonner';
 	import PrivateText from '#lib/components/private-text.svelte';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 
 	let {
 		account,
 		open = $bindable(false),
-		defaultOn = false
-	}: { account: Account | null; open: boolean; defaultOn?: boolean } = $props();
+		defaultOn = false,
+		focus
+	}: {
+		account: Account | null;
+		open: boolean;
+		defaultOn?: boolean;
+		// Section to jump to on open.
+		focus?: 'session';
+	} = $props();
 
 	let label = $state('');
 	let alias = $state('');
@@ -41,6 +49,7 @@
 			rules = { ...account.redeemEffective };
 			error = '';
 			session = '';
+			guide = !account.hasWebSession || !!account.subscription?.webExpired;
 		}
 	});
 
@@ -82,6 +91,8 @@
 
 	let session = $state('');
 	let sessionBusy = $state(false);
+	let guide = $state(false);
+	const web = $derived(account?.subscription);
 
 	async function saveSession(value: string) {
 		if (!account) return;
@@ -105,7 +116,14 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+	<Dialog.Content
+		class="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+		onOpenAutoFocus={(e) => {
+			if (focus !== 'session') return;
+			e.preventDefault();
+			document.getElementById('web-session')?.focus();
+		}}
+	>
 		<form onsubmit={save} class="space-y-6">
 			<Dialog.Header>
 				<Dialog.Title class="flex items-center gap-2">
@@ -134,8 +152,9 @@
 					</Field.Description>
 				</Field.Field>
 				{#if account?.provider === 'codex'}
+					<Field.Separator />
 					<Field.Set>
-						<Field.Legend variant="label">Banked resets</Field.Legend>
+						<Field.Legend>Banked resets</Field.Legend>
 						<Select.Root type="single" bind:value={redeemMode}>
 							<Select.Trigger class="w-full">
 								{redeemModes.find((m) => m.value === redeemMode)?.label}
@@ -161,8 +180,9 @@
 					</Field.Set>
 				{/if}
 				{#if account?.provider === 'claude'}
+					<Field.Separator />
 					<Field.Field>
-						<Field.Label for="web-session">claude.ai session</Field.Label>
+						<Field.Label for="web-session" class="text-base">claude.ai session</Field.Label>
 						<div class="flex gap-2">
 							<Input
 								id="web-session"
@@ -188,12 +208,55 @@
 								>
 							{/if}
 						</div>
+						{#if account.hasWebSession && web?.webExpired}
+							<Field.Error
+								>This session stopped working. Get a new one with the steps below.</Field.Error
+							>
+						{:else if account.hasWebSession && web?.webError}
+							<p class="text-sm" style="color: var(--viz-warning)">{web.webError}</p>
+						{/if}
 						<Field.Description>
 							Only used to read the real renewal date, which Anthropic doesn't share with Claude
-							Code's login. On claude.ai, open DevTools → Application → Cookies and copy the
-							<code>sessionKey</code> value. It gives full access to the claude.ai account, so it's kept
-							on the server and never shown again.
+							Code's login. maitake checks it every 6 hours and keeps any fresh key claude.ai hands
+							out. It gives full access to the claude.ai account, so it stays on the server and is
+							never shown again.
 						</Field.Description>
+						<button
+							type="button"
+							class="flex items-center gap-1 text-sm font-medium"
+							aria-expanded={guide}
+							onclick={() => (guide = !guide)}
+						>
+							How to get one
+							<ChevronDownIcon
+								class="size-4 text-muted-foreground transition-transform {guide
+									? 'rotate-180'
+									: ''}"
+							/>
+						</button>
+						{#if guide}
+							<ol
+								class="list-decimal space-y-1.5 pl-5 text-sm text-muted-foreground marker:text-muted-foreground"
+							>
+								<li>
+									Open a private (incognito) window and sign in to claude.ai with this account. That
+									sign-in gets its own key, so signing out in your everyday browser won't break it.
+								</li>
+								<li>
+									Press F12 and open <span class="text-foreground"
+										>Application → Cookies → https://claude.ai</span
+									>. In Firefox it's <span class="text-foreground">Storage → Cookies</span>.
+								</li>
+								<li>
+									Copy the <code>sessionKey</code> value (it starts with
+									<code>sk-ant-sid01-</code>), paste it above and press Connect.
+								</li>
+								<li>
+									Close the private window <span class="text-foreground">without signing out</span>.
+									Signing out revokes the key.
+								</li>
+							</ol>
+						{/if}
 					</Field.Field>
 				{/if}
 				{#if error}<Field.Error>{error}</Field.Error>{/if}

@@ -684,6 +684,13 @@ func (m *Manager) RefreshSubscription(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+	if sub.RenewedSession != "" {
+		if err := m.store.SetAccountWebSession(ctx, id, sub.RenewedSession); err != nil {
+			slog.Error("save renewed web session", "account", id, "err", err)
+		} else {
+			slog.Info("web session renewed", "account", id)
+		}
+	}
 	m.mu.Lock()
 	e.sub = sub
 	m.mu.Unlock()
