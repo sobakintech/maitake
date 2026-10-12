@@ -51,6 +51,7 @@ var (
 
 var claudeModels = []builtin{
 	{"claude-opus-5-5", 1_000_000, 128_000, claudeXHigh}, {"claude-sonnet-5-5", 1_000_000, 128_000, claudeXHigh},
+	{"claude-haiku-5-5", 1_000_000, 128_000, claudeXHigh},
 	{"claude-fable-5-1", 1_000_000, 128_000, claudeXHigh}, {"claude-fable-5", 1_000_000, 128_000, claudeXHigh},
 	{"claude-opus-5", 1_000_000, 128_000, claudeXHigh}, {"claude-sonnet-5", 1_000_000, 128_000, claudeXHigh},
 	{"claude-opus-4-8", 1_000_000, 128_000, claudeXHigh}, {"claude-opus-4-7", 1_000_000, 128_000, claudeXHigh},
