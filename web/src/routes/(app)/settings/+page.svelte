@@ -18,10 +18,7 @@
 	import LineListInput from '#lib/components/line-list-input.svelte';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { primerNumbers } from '#lib/primer.js';
-	import { numbers } from '#lib/redeem.js';
-	import PoolSettings from './pool-settings.svelte';
-	import PrimerSettings from './primer-settings.svelte';
+	import { saveSettings } from '#lib/settings.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -32,8 +29,6 @@
 	let saving = $state(false);
 
 	const tabs = [
-		{ id: 'pool', label: 'Account pool' },
-		{ id: 'primer', label: 'Session primer' },
 		{ id: 'claude', label: 'Claude' },
 		{ id: 'usage', label: 'Usage history' },
 		{ id: 'audit', label: 'Audit log' },
@@ -43,7 +38,7 @@
 	const tab = $derived(
 		tabs.some((t) => t.id === page.url.searchParams.get('tab'))
 			? page.url.searchParams.get('tab')!
-			: 'pool'
+			: 'claude'
 	);
 
 	function selectTab(v: string) {
@@ -118,39 +113,8 @@
 	}
 	async function save() {
 		saving = true;
-		try {
-			const next = draft.snapshot();
-			const pool = next.pool;
-			pool.quotaPollMinutes = Number(pool.quotaPollMinutes);
-			pool.maxRetries = Number(pool.maxRetries);
-			pool.bootstrapSeconds = Number(pool.bootstrapSeconds);
-			pool.keepaliveSeconds = Number(pool.keepaliveSeconds);
-			numbers(pool.redeem);
-			for (const r of pool.errorRules) {
-				r.status = Number(r.status) || 0;
-				r.cooldownSeconds = Number(r.cooldownSeconds) || 0;
-			}
-			primerNumbers(pool.primer.schedule);
-			next.usageRetentionDays = Number(next.usageRetentionDays);
-			next.updates.intervalHours = Number(next.updates.intervalHours) || 6;
-			for (const k of [
-				'samplePercent',
-				'maxBodyKB',
-				'retentionDays',
-				'maxEntries',
-				'maxStorageMB'
-			] as const)
-				next.audit[k] = Number(next.audit[k]) || 0;
-			const { settings } = await admin.saveSettings(next);
-			draft.value = structuredClone(settings);
-			draft.commit();
-			toast.success('Saved');
-			await invalidateAll();
-		} catch (err) {
-			toast.error(errorMessage(err));
-		} finally {
-			saving = false;
-		}
+		await saveSettings(draft);
+		saving = false;
 	}
 </script>
 
@@ -175,18 +139,6 @@
 					<Tabs.Trigger value={t.id}>{t.label}</Tabs.Trigger>
 				{/each}
 			</Tabs.List>
-
-			<Tabs.Content value="pool" class="pt-4">
-				<PoolSettings bind:pool={form.pool} />
-			</Tabs.Content>
-
-			<Tabs.Content value="primer" class="pt-4">
-				<PrimerSettings
-					bind:primer={form.pool.primer}
-					serverTimezone={data.serverTimezone}
-					catalog={data.models}
-				/>
-			</Tabs.Content>
 
 			<Tabs.Content value="claude" class="pt-4">
 				<Card.Root>

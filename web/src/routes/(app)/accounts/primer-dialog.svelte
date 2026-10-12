@@ -105,7 +105,7 @@
 
 	function editShared() {
 		open = false;
-		goto('/settings?tab=primer');
+		goto('/primer');
 	}
 </script>
 

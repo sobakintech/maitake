@@ -169,7 +169,7 @@
 							<Field.Content>
 								<Field.Label for="custom-rules">Custom rules for this account</Field.Label>
 								<Field.Description
-									>Otherwise the rules in Settings → Account pool apply.</Field.Description
+									>Otherwise the rules on the Account pool page apply.</Field.Description
 								>
 							</Field.Content>
 							<Switch id="custom-rules" bind:checked={customRules} />

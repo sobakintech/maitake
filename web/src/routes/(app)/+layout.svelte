@@ -20,22 +20,41 @@
 	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import CircleArrowUpIcon from '@lucide/svelte/icons/circle-arrow-up';
+	import AlarmClockIcon from '@lucide/svelte/icons/alarm-clock';
+	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import { mode, toggleMode } from 'mode-watcher';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
 
 	const nav = [
-		{ href: '/overview', label: 'Overview', icon: LayoutDashboardIcon },
-		{ href: '/accounts', label: 'Accounts', icon: ServerIcon },
-		{ href: '/timeline', label: 'Timeline', icon: CalendarClockIcon },
-		{ href: '/users', label: 'Users', icon: UsersIcon },
-		{ href: '/keys', label: 'API keys', icon: KeyRoundIcon },
-		{ href: '/models', label: 'Models', icon: BoxesIcon },
-		{ href: '/usage', label: 'Usage', icon: ChartColumnIcon },
-		{ href: '/audit', label: 'Audit log', icon: ScrollTextIcon },
-		{ href: '/quota-page', label: 'Quota page', icon: GaugeIcon },
-		{ href: '/settings', label: 'Settings', icon: SettingsIcon }
+		{
+			label: 'Manage',
+			items: [
+				{ href: '/overview', label: 'Overview', icon: LayoutDashboardIcon },
+				{ href: '/accounts', label: 'Accounts', icon: ServerIcon },
+				{ href: '/users', label: 'Users', icon: UsersIcon },
+				{ href: '/keys', label: 'API keys', icon: KeyRoundIcon },
+				{ href: '/models', label: 'Models', icon: BoxesIcon }
+			]
+		},
+		{
+			label: 'Activity',
+			items: [
+				{ href: '/timeline', label: 'Timeline', icon: CalendarClockIcon },
+				{ href: '/usage', label: 'Usage', icon: ChartColumnIcon },
+				{ href: '/audit', label: 'Audit log', icon: ScrollTextIcon }
+			]
+		},
+		{
+			label: 'Configure',
+			items: [
+				{ href: '/pool', label: 'Account pool', icon: SlidersHorizontalIcon },
+				{ href: '/primer', label: 'Session primer', icon: AlarmClockIcon },
+				{ href: '/quota-page', label: 'Quota page', icon: GaugeIcon },
+				{ href: '/settings', label: 'Settings', icon: SettingsIcon }
+			]
+		}
 	];
 
 	async function logout() {
@@ -62,26 +81,28 @@
 			</Sidebar.Menu>
 		</Sidebar.Header>
 		<Sidebar.Content>
-			<Sidebar.Group>
-				<Sidebar.GroupLabel>Manage</Sidebar.GroupLabel>
-				<Sidebar.Menu>
-					{#each nav as item (item.href)}
-						<Sidebar.MenuItem>
-							<Sidebar.MenuButton
-								isActive={page.url.pathname.startsWith(item.href)}
-								tooltipContent={item.label}
-							>
-								{#snippet child({ props })}
-									<a href={item.href} {...props}>
-										<item.icon />
-										<span>{item.label}</span>
-									</a>
-								{/snippet}
-							</Sidebar.MenuButton>
-						</Sidebar.MenuItem>
-					{/each}
-				</Sidebar.Menu>
-			</Sidebar.Group>
+			{#each nav as group (group.label)}
+				<Sidebar.Group>
+					<Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+					<Sidebar.Menu>
+						{#each group.items as item (item.href)}
+							<Sidebar.MenuItem>
+								<Sidebar.MenuButton
+									isActive={page.url.pathname.startsWith(item.href)}
+									tooltipContent={item.label}
+								>
+									{#snippet child({ props })}
+										<a href={item.href} {...props}>
+											<item.icon />
+											<span>{item.label}</span>
+										</a>
+									{/snippet}
+								</Sidebar.MenuButton>
+							</Sidebar.MenuItem>
+						{/each}
+					</Sidebar.Menu>
+				</Sidebar.Group>
+			{/each}
 		</Sidebar.Content>
 		<Sidebar.Footer>
 			<Sidebar.Menu>
