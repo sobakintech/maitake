@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import { useSidebar } from '#lib/components/ui/sidebar/index.js';
 	import { fly } from 'svelte/transition';
 
 	// Discord-style save bar: appears while there are unsaved changes, blocks leaving the page,
@@ -12,6 +13,7 @@
 		onReset
 	}: { dirty: boolean; saving?: boolean; onSave: () => void; onReset: () => void } = $props();
 
+	const sidebar = useSidebar();
 	let nudged = $state(false);
 	let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -43,7 +45,18 @@
 <svelte:window {onkeydown} />
 
 {#if dirty}
-	<div class="pointer-events-none sticky bottom-4 z-40 flex justify-center pt-6">
+	<!-- Keeps the end of the page scrollable past the bar. -->
+	<div class="h-16" aria-hidden="true"></div>
+	<div
+		class={[
+			'pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-6 transition-[left] duration-200 ease-linear',
+			sidebar &&
+				!sidebar.isMobile &&
+				(sidebar.state === 'collapsed'
+					? 'md:left-(--sidebar-width-icon)'
+					: 'md:left-(--sidebar-width)')
+		]}
+	>
 		<div
 			transition:fly={{ y: 24, duration: 180 }}
 			class={[
