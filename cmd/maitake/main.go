@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/sobakintech/maitake/internal/accounts"
 	"github.com/sobakintech/maitake/internal/audit"
@@ -142,6 +143,7 @@ func run(configPath string) error {
 	go recorder.Run(bg)
 	go auditLog.Run(bg)
 	go mgr.Run(ctx)
+	go mgr.RunPrimer(ctx)
 	go poller.Run(ctx)
 	go claudePoller.Run(ctx)
 	go updates.Run(ctx)
@@ -153,6 +155,9 @@ func run(configPath string) error {
 			if err := st.PruneUsage(ctx, time.Now().AddDate(0, 0, -days)); err != nil {
 				slog.Error("prune usage", "err", err)
 			}
+		}
+		if err := st.PrunePrimerRuns(ctx, time.Now().AddDate(0, 0, -30)); err != nil {
+			slog.Error("prune primer runs", "err", err)
 		}
 		if err := auditLog.Prune(ctx); err != nil {
 			slog.Error("prune audit log", "err", err)

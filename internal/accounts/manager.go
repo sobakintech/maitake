@@ -40,11 +40,13 @@ type Settings struct {
 	// KeepaliveSeconds sends an SSE comment when the upstream is quiet that long (0 = off).
 	KeepaliveSeconds int         `json:"keepaliveSeconds"`
 	ErrorRules       []ErrorRule `json:"errorRules"`
+	// Primer starts session windows on a schedule.
+	Primer PrimerSettings `json:"primer"`
 }
 
 func DefaultSettings() Settings {
 	return Settings{QuotaPollMinutes: 5, Redeem: DefaultRedeemPolicy(), MaxRetries: 3, BootstrapSeconds: 20,
-		KeepaliveSeconds: 15, ErrorRules: DefaultErrorRules()}
+		KeepaliveSeconds: 15, ErrorRules: DefaultErrorRules(), Primer: DefaultPrimerSettings()}
 }
 
 func (s *Settings) Normalize() {
@@ -55,6 +57,7 @@ func (s *Settings) Normalize() {
 		s.Redeem.MinWaitMinutes, s.AutoRedeemMinWaitMinutes = s.AutoRedeemMinWaitMinutes, 0
 	}
 	s.Redeem.Normalize()
+	s.Primer.Normalize()
 	if s.MaxRetries < 1 {
 		s.MaxRetries = 1
 	}
@@ -91,6 +94,7 @@ type entry struct {
 	lastPicked time.Time
 	lastRedeem time.Time
 	redeems    []time.Time // automatic uses, for the daily cap
+	primer     primerState
 	refreshMu  sync.Mutex
 }
 
@@ -103,11 +107,14 @@ type Manager struct {
 	entries map[int64]*entry
 	sticky  map[string]stickyEntry
 	wake    chan struct{}
+
+	primerWake chan struct{}
 }
 
 func New(st *store.Store, settings func() Settings, providers ...provider.Provider) *Manager {
 	m := &Manager{store: st, settings: settings, providers: map[string]provider.Provider{},
-		entries: map[int64]*entry{}, sticky: map[string]stickyEntry{}, wake: make(chan struct{}, 1)}
+		entries: map[int64]*entry{}, sticky: map[string]stickyEntry{}, wake: make(chan struct{}, 1),
+		primerWake: make(chan struct{}, 1)}
 	for _, p := range providers {
 		m.providers[p.ID()] = p
 	}
@@ -149,13 +156,24 @@ type View struct {
 	// Redeem is the account's own banked reset rules; RedeemEffective adds the pool defaults.
 	Redeem          RedeemOverride `json:"redeem"`
 	RedeemEffective RedeemPolicy   `json:"redeemEffective"`
-	TokenExpiresAt  *time.Time     `json:"tokenExpiresAt"`
-	LastRefresh     *time.Time     `json:"lastRefresh"`
+	// Primer is the account's own session primer setup; PrimerEffective fills in the pool's.
+	Primer          AccountPrimer    `json:"primer"`
+	PrimerEffective PrimerEffective  `json:"primerEffective"`
+	PrimerNext      *PrimerPlan      `json:"primerNext"`
+	PrimerLast      *store.PrimerRun `json:"primerLast"`
+	PrimerBusy      bool             `json:"primerBusy"`
+	TokenExpiresAt  *time.Time       `json:"tokenExpiresAt"`
+	LastRefresh     *time.Time       `json:"lastRefresh"`
 }
 
 func (m *Manager) viewOf(e *entry) View {
 	v := View{Account: e.acct, Quota: e.snap, Subscription: e.sub, Redeem: ParseRedeemOverride(e.acct.RedeemPolicy)}
-	v.RedeemEffective = v.Redeem.Apply(m.settings().Redeem)
+	s := m.settings()
+	v.RedeemEffective = v.Redeem.Apply(s.Redeem)
+	v.Primer = ParseAccountPrimer(e.acct.PrimerPolicy)
+	s.Primer.Normalize()
+	v.PrimerEffective = s.Primer.Effective(e.acct.Provider, v.Primer)
+	v.PrimerNext, v.PrimerLast, v.PrimerBusy = e.primer.next, e.primer.last, e.primer.busy
 	now := time.Now()
 	for model, until := range e.modelCool {
 		if until.After(now) {
@@ -262,6 +280,7 @@ func (m *Manager) Update(ctx context.Context, id int64, p store.AccountPatch) (*
 		e.acct = *a
 	}
 	m.mu.Unlock()
+	m.WakePrimer()
 	return a, nil
 }
 

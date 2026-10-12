@@ -13,6 +13,7 @@ import type {
 	ResetsSnapshot,
 	DisplayProfile,
 	ProfileConfig,
+	PrimerRun,
 	Provider,
 	QuotaView,
 	RedeemResult,
@@ -208,6 +209,15 @@ export const admin = {
 			`/admin/accounts/${id}/redeem`,
 			creditId ? { creditId } : {}
 		),
+	primeAccount: (id: number) =>
+		request<{ run: PrimerRun; account: Account }>('POST', `/admin/accounts/${id}/prime`),
+	primerRuns: (accountId?: number, f?: typeof fetch) =>
+		request<{ runs: PrimerRun[] }>(
+			'GET',
+			`/admin/primer/runs${accountId ? `?account=${accountId}` : ''}`,
+			undefined,
+			f
+		),
 	refreshAll: () =>
 		request<{ refreshed: number; failed: { id: number; label: string; error: string }[] }>(
 			'POST',
@@ -247,7 +257,12 @@ export const admin = {
 		request<{ deleted: number }>('DELETE', `/admin/audit?${auditQuery(filter)}`),
 
 	settings: (f?: typeof fetch) =>
-		request<{ settings: Settings; outboundProxy: boolean }>('GET', '/admin/settings', undefined, f),
+		request<{ settings: Settings; outboundProxy: boolean; serverTimezone?: string }>(
+			'GET',
+			'/admin/settings',
+			undefined,
+			f
+		),
 	saveSettings: (settings: Settings) =>
 		request<{ settings: Settings }>('PUT', '/admin/settings', settings),
 	profiles: (f?: typeof fetch) =>

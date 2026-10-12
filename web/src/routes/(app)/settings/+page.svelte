@@ -10,9 +10,6 @@
 	import { admin, errorMessage, type Settings } from '#lib/api.js';
 	import { Draft } from '#lib/draft.svelte.js';
 	import UnsavedBar from '#lib/components/unsaved-bar.svelte';
-	import ErrorRulesEditor from '#lib/components/error-rules-editor.svelte';
-	import RedeemPolicyFields from '#lib/components/redeem-policy-fields.svelte';
-	import { numbers } from '#lib/redeem.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
@@ -21,6 +18,10 @@
 	import LineListInput from '#lib/components/line-list-input.svelte';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { primerNumbers } from '#lib/primer.js';
+	import { numbers } from '#lib/redeem.js';
+	import PoolSettings from './pool-settings.svelte';
+	import PrimerSettings from './primer-settings.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -32,6 +33,7 @@
 
 	const tabs = [
 		{ id: 'pool', label: 'Account pool' },
+		{ id: 'primer', label: 'Session primer' },
 		{ id: 'claude', label: 'Claude' },
 		{ id: 'usage', label: 'Usage history' },
 		{ id: 'audit', label: 'Audit log' },
@@ -118,15 +120,17 @@
 		saving = true;
 		try {
 			const next = draft.snapshot();
-			next.pool.quotaPollMinutes = Number(next.pool.quotaPollMinutes);
-			next.pool.maxRetries = Number(next.pool.maxRetries);
-			numbers(next.pool.redeem);
-			next.pool.bootstrapSeconds = Number(next.pool.bootstrapSeconds);
-			next.pool.keepaliveSeconds = Number(next.pool.keepaliveSeconds);
-			for (const r of next.pool.errorRules) {
+			const pool = next.pool;
+			pool.quotaPollMinutes = Number(pool.quotaPollMinutes);
+			pool.maxRetries = Number(pool.maxRetries);
+			pool.bootstrapSeconds = Number(pool.bootstrapSeconds);
+			pool.keepaliveSeconds = Number(pool.keepaliveSeconds);
+			numbers(pool.redeem);
+			for (const r of pool.errorRules) {
 				r.status = Number(r.status) || 0;
 				r.cooldownSeconds = Number(r.cooldownSeconds) || 0;
 			}
+			primerNumbers(pool.primer.schedule);
 			next.usageRetentionDays = Number(next.usageRetentionDays);
 			next.updates.intervalHours = Number(next.updates.intervalHours) || 6;
 			for (const k of [
@@ -150,7 +154,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-3xl space-y-6">
+<div class="space-y-6">
 	<div>
 		<h1 class="text-xl font-semibold tracking-tight">Settings</h1>
 		<p class="text-sm text-muted-foreground">
@@ -173,111 +177,15 @@
 			</Tabs.List>
 
 			<Tabs.Content value="pool" class="pt-4">
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Account pool</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<Field.Group>
-							<Field.Field>
-								<Field.Label for="poll">Check account limits every (minutes)</Field.Label>
-								<Input
-									id="poll"
-									type="number"
-									min={1}
-									class="w-32"
-									bind:value={form.pool.quotaPollMinutes}
-								/>
-								<Field.Description
-									>Limits also update live from every proxied response.</Field.Description
-								>
-							</Field.Field>
-							<Field.Field>
-								<Field.Label for="retries">Accounts to try per request</Field.Label>
-								<Input
-									id="retries"
-									type="number"
-									min={1}
-									max={10}
-									class="w-32"
-									bind:value={form.pool.maxRetries}
-								/>
-								<Field.Description>
-									When an account is rate limited or errors before answering, the request moves to
-									the next one.
-								</Field.Description>
-							</Field.Field>
+				<PoolSettings bind:pool={form.pool} />
+			</Tabs.Content>
 
-							<Field.Field>
-								<Field.Label for="bootstrap"
-									>Wait for the first output before committing (seconds)</Field.Label
-								>
-								<Input
-									id="bootstrap"
-									type="number"
-									min={0}
-									class="w-32"
-									bind:value={form.pool.bootstrapSeconds}
-								/>
-								<Field.Description>
-									A stream can still fail right after it starts, for example with an overload error.
-									Holding the opening events back this long lets the request move to another account
-									without the client noticing. 0 sends everything immediately.
-								</Field.Description>
-							</Field.Field>
-							<Field.Field>
-								<Field.Label for="keepalive">Keep idle streams alive every (seconds)</Field.Label>
-								<Input
-									id="keepalive"
-									type="number"
-									min={0}
-									class="w-32"
-									bind:value={form.pool.keepaliveSeconds}
-								/>
-								<Field.Description>
-									Sends an empty comment while the model thinks, so proxies and clients with idle
-									timeouts don't drop the connection. 0 turns it off.
-								</Field.Description>
-							</Field.Field>
-						</Field.Group>
-					</Card.Content>
-				</Card.Root>
-				<Card.Root class="mt-6">
-					<Card.Header>
-						<Card.Title>Banked resets</Card.Title>
-						<Card.Description>
-							When Codex accounts spend their banked resets on their own. Each account can override
-							any of this in its Edit dialog. Claude accounts' banked resets are only spent from the
-							Accounts page.
-						</Card.Description>
-					</Card.Header>
-					<Card.Content>
-						<Field.Group>
-							<Field.Field orientation="horizontal">
-								<Field.Content>
-									<Field.Label for="redeem-on">Use banked resets automatically</Field.Label>
-									<Field.Description
-										>The default for accounts that don't set their own.</Field.Description
-									>
-								</Field.Content>
-								<Switch id="redeem-on" bind:checked={form.pool.redeem.enabled} />
-							</Field.Field>
-							<RedeemPolicyFields bind:policy={form.pool.redeem} idPrefix="pool-redeem" />
-						</Field.Group>
-					</Card.Content>
-				</Card.Root>
-				<Card.Root class="mt-6">
-					<Card.Header>
-						<Card.Title>Error handling</Card.Title>
-						<Card.Description>
-							Decide what happens when a provider returns an error: whether the request moves to the
-							next account, and whether the account (or just the model on it) gets benched.
-						</Card.Description>
-					</Card.Header>
-					<Card.Content>
-						<ErrorRulesEditor bind:rules={form.pool.errorRules} />
-					</Card.Content>
-				</Card.Root>
+			<Tabs.Content value="primer" class="pt-4">
+				<PrimerSettings
+					bind:primer={form.pool.primer}
+					serverTimezone={data.serverTimezone}
+					catalog={data.models}
+				/>
 			</Tabs.Content>
 
 			<Tabs.Content value="claude" class="pt-4">
@@ -381,7 +289,7 @@
 				</Card.Root>
 			</Tabs.Content>
 
-			<Tabs.Content value="audit" class="pt-4">
+			<Tabs.Content value="audit" class="grid items-start gap-6 pt-4 xl:grid-cols-2">
 				<Card.Root>
 					<Card.Header>
 						<Card.Title>Audit log</Card.Title>
@@ -445,7 +353,7 @@
 						</Field.Group>
 					</Card.Content>
 				</Card.Root>
-				<Card.Root class="mt-6">
+				<Card.Root>
 					<Card.Header>
 						<Card.Title>What to keep</Card.Title>
 						<Card.Description>
@@ -530,7 +438,7 @@
 						</Field.Group>
 					</Card.Content>
 				</Card.Root>
-				<Card.Root class="mt-6">
+				<Card.Root>
 					<Card.Header>
 						<Card.Title>Retention</Card.Title>
 						<Card.Description>
@@ -620,7 +528,7 @@
 				</Card.Root>
 			</Tabs.Content>
 
-			<Tabs.Content value="about" class="pt-4">
+			<Tabs.Content value="about" class="grid items-start gap-6 pt-4 xl:grid-cols-2">
 				<Card.Root>
 					<Card.Header>
 						<Card.Title>About</Card.Title>
@@ -661,7 +569,7 @@
 				</Card.Root>
 
 				{#if updates.newer.length}
-					<Card.Root class="mt-6">
+					<Card.Root>
 						<Card.Header>
 							<Card.Title>Update available</Card.Title>
 							<Card.Description>
@@ -695,7 +603,7 @@
 					</Card.Root>
 				{/if}
 
-				<Card.Root class="mt-6">
+				<Card.Root>
 					<Card.Header>
 						<Card.Title>Updates</Card.Title>
 					</Card.Header>

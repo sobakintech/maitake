@@ -23,6 +23,9 @@
 	import EditAccountDialog from './edit-account-dialog.svelte';
 	import BankedResets from './banked-resets.svelte';
 	import SubscriptionLine from './subscription-line.svelte';
+	import PrimerBox from './primer-box.svelte';
+	import PrimerDialog from './primer-dialog.svelte';
+	import { primeNow } from '#lib/prime-now.js';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { PageProps } from './$types';
@@ -54,6 +57,18 @@
 		else url.searchParams.set('provider', v);
 		goto(url, { replace: true, reset: false });
 	}
+
+	let primerOpen = $state(false);
+	let primerAccount = $state<Account | null>(null);
+	function openPrimer(a: Account) {
+		primerAccount = a;
+		primerOpen = true;
+	}
+
+	const sessionRunning = (a: Account) => {
+		const w = a.quota?.windows.find((w) => w.kind === 'session');
+		return !!w?.resetsAt && new Date(w.resetsAt) > new Date();
+	};
 
 	let editFocus = $state<'session' | undefined>();
 	function edit(a: Account, focus?: 'session') {
@@ -144,7 +159,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl space-y-6">
+<div class="space-y-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
 			<h1 class="text-xl font-semibold tracking-tight">Accounts</h1>
@@ -234,6 +249,11 @@
 										</DropdownMenu.Trigger>
 										<DropdownMenu.Content align="end">
 											<DropdownMenu.Item onSelect={() => edit(a)}>Edit</DropdownMenu.Item>
+											{#if !a.disabled && !a.primerBusy && !sessionRunning(a)}
+												<DropdownMenu.Item onSelect={() => primeNow(a)}>
+													Start a session
+												</DropdownMenu.Item>
+											{/if}
 											<DropdownMenu.Item
 												onSelect={() =>
 													act(
@@ -286,6 +306,7 @@
 									</div>
 								{/if}
 								<AccountQuota quota={a.quota} />
+								<PrimerBox account={a} onOpen={() => openPrimer(a)} />
 								{#if a.quota?.banked}
 									<BankedResets account={a} />
 								{/if}
@@ -332,7 +353,15 @@
 	account={editing}
 	bind:open={editOpen}
 	focus={editFocus}
-	defaultOn={data.redeemDefault}
+	defaultOn={data.settings.pool.redeem.enabled}
+/>
+
+<PrimerDialog
+	account={primerAccount}
+	bind:open={primerOpen}
+	shared={data.settings.pool.primer}
+	catalog={data.models}
+	serverTimezone={data.serverTimezone}
 />
 
 <AlertDialog.Root open={deleting !== null} onOpenChange={(v) => !v && (deleting = null)}>

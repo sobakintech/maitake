@@ -31,6 +31,7 @@ type Provider struct {
 	// fingerprint is used instead of client when TLS fingerprinting is on. It can't go through
 	// an outbound proxy, so it's nil when one is configured.
 	fingerprint *http.Client
+	models      modelList
 }
 
 func New(client *http.Client, direct bool) *Provider {

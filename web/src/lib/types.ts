@@ -67,6 +67,11 @@ export type Account = {
 	hasWebSession: boolean;
 	redeem: RedeemOverride;
 	redeemEffective: RedeemPolicy;
+	primer: AccountPrimer;
+	primerEffective: PrimerEffective;
+	primerNext: PrimerPlan | null;
+	primerLast: PrimerRun | null;
+	primerBusy: boolean;
 	modelCooldowns?: Record<string, string>;
 };
 
@@ -82,6 +87,7 @@ export type Subscription = {
 
 export type AccountPatch = Partial<Pick<Account, 'label' | 'alias' | 'disabled' | 'priority'>> & {
 	redeem?: RedeemOverride;
+	primer?: AccountPrimer;
 };
 
 export type RedeemPolicy = {
@@ -98,6 +104,55 @@ export type RedeemPolicy = {
 
 // An account's own rules; missing fields use the pool default.
 export type RedeemOverride = Partial<RedeemPolicy>;
+
+export type PrimerSchedule = {
+	// Local "HH:MM" times a fresh session should be ready.
+	times: string[];
+	// 0 = Sunday; empty means every day.
+	days: number[];
+	// IANA zone; missing uses the server's.
+	timezone?: string;
+};
+
+export type PrimerPolicy = {
+	schedules: PrimerSchedule[];
+	delaySeconds: number;
+	verify: boolean;
+	verifySeconds: number;
+	retries: number;
+	retrySeconds: number;
+	graceMinutes: number;
+};
+
+// An account's primer setup; model and schedule replace the pool's when set.
+export type AccountPrimer = {
+	enabled: boolean;
+	model?: string;
+	schedule?: PrimerPolicy;
+};
+
+export type PrimerEffective = PrimerPolicy & { enabled: boolean; model: string };
+
+export type PrimerSettings = {
+	schedule: PrimerPolicy;
+	// Ping model per provider; missing ones use the built-in default.
+	models: Partial<Record<Provider, string>>;
+	prompt: string;
+};
+
+export type PrimerPlan = { at: string; readyAt: string };
+
+export type PrimerRun = {
+	id: number;
+	accountId: number;
+	time: string;
+	trigger: 'slot' | 'manual';
+	plannedAt?: string;
+	outcome: 'started' | 'sent' | 'skipped' | 'failed';
+	message: string;
+	pings: number;
+	resetsAt?: string;
+};
 
 export type UsageTotals = {
 	requests: number;
@@ -247,6 +302,7 @@ export type PoolSettings = {
 	bootstrapSeconds: number;
 	keepaliveSeconds: number;
 	errorRules: ErrorRule[];
+	primer: PrimerSettings;
 };
 
 export type ErrorRule = {

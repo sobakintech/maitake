@@ -21,6 +21,7 @@ type Account struct {
 	Priority       int        `json:"priority"`
 	AutoRedeem     bool       `json:"-"` // superseded by RedeemPolicy
 	RedeemPolicy   string     `json:"-"`
+	PrimerPolicy   string     `json:"-"`
 	Status         string     `json:"status"`
 	StatusMessage  string     `json:"statusMessage"`
 	CooldownUntil  *time.Time `json:"cooldownUntil"`
@@ -40,11 +41,13 @@ type AccountPatch struct {
 	Priority *int    `json:"priority"`
 	// RedeemPolicy is the account's banked reset override as JSON ("" clears it).
 	RedeemPolicy *string `json:"-"`
+	// PrimerPolicy is the account's session primer override as JSON ("" clears it).
+	PrimerPolicy *string `json:"-"`
 }
 
 const accountColumns = `id, provider, label, alias, email, external_id, plan, credentials, disabled, priority,
 	auto_redeem, status, status_message, cooldown_until, quota, quota_updated_at, last_used_at, created_at, updated_at,
-	subscription, web_session != '', redeem_policy`
+	subscription, web_session != '', redeem_policy, primer_policy`
 
 func scanAccount(sc interface{ Scan(...any) error }) (*Account, error) {
 	var a Account
@@ -52,7 +55,7 @@ func scanAccount(sc interface{ Scan(...any) error }) (*Account, error) {
 	var created, updated int64
 	err := sc.Scan(&a.ID, &a.Provider, &a.Label, &a.Alias, &a.Email, &a.ExternalID, &a.Plan, &a.Credentials,
 		&a.Disabled, &a.Priority, &a.AutoRedeem, &a.Status, &a.StatusMessage, &cooldown, &a.Quota, &quotaAt,
-		&lastUsed, &created, &updated, &a.Subscription, &a.HasWebSession, &a.RedeemPolicy)
+		&lastUsed, &created, &updated, &a.Subscription, &a.HasWebSession, &a.RedeemPolicy, &a.PrimerPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -134,9 +137,10 @@ func (s *Store) UpdateAccount(ctx context.Context, id int64, p AccountPatch) (*A
 			disabled = COALESCE(?, disabled),
 			priority = COALESCE(?, priority),
 			redeem_policy = COALESCE(?, redeem_policy),
+			primer_policy = COALESCE(?, primer_policy),
 			updated_at = ?
 		 WHERE id = ?`,
-		p.Label, p.Alias, p.Disabled, p.Priority, p.RedeemPolicy, unix(time.Now()), id))
+		p.Label, p.Alias, p.Disabled, p.Priority, p.RedeemPolicy, p.PrimerPolicy, unix(time.Now()), id))
 	if err != nil {
 		return nil, err
 	}

@@ -2,9 +2,10 @@ import { admin } from '#lib/api.js';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	const [{ accounts }, { settings }] = await Promise.all([
+	const [{ accounts }, { settings, serverTimezone }, { models }] = await Promise.all([
 		admin.accounts(fetch),
-		admin.settings(fetch)
+		admin.settings(fetch),
+		admin.models(fetch)
 	]);
-	return { accounts, redeemDefault: settings.pool.redeem.enabled };
+	return { accounts, settings, models, serverTimezone: serverTimezone ?? '' };
 };

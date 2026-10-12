@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -279,6 +280,8 @@ func (s *Server) updateAccount(w http.ResponseWriter, r *http.Request) {
 		store.AccountPatch
 		// Redeem replaces the account's banked reset override; null fields use the pool default.
 		Redeem *accounts.RedeemOverride `json:"redeem"`
+		// Primer replaces the account's session primer setup.
+		Primer *accounts.AccountPrimer `json:"primer"`
 	}
 	if !readJSON(w, r, &body) {
 		return
@@ -290,6 +293,18 @@ func (s *Server) updateAccount(w http.ResponseWriter, r *http.Request) {
 			policy = ""
 		}
 		body.RedeemPolicy = &policy
+	}
+	if body.Primer != nil {
+		if body.Primer.Schedule != nil {
+			body.Primer.Schedule.Normalize()
+		}
+		body.Primer.Model = strings.TrimSpace(body.Primer.Model)
+		policy := ""
+		if body.Primer.Enabled || body.Primer.Model != "" || body.Primer.Schedule != nil {
+			raw, _ := json.Marshal(body.Primer)
+			policy = string(raw)
+		}
+		body.PrimerPolicy = &policy
 	}
 	if body.Label != nil {
 		*body.Label = strings.TrimSpace(*body.Label)
@@ -368,6 +383,38 @@ func (s *Server) redeemAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	v, _ := s.accounts.Get(id)
 	writeJSON(w, http.StatusOK, map[string]any{"result": res, "account": v})
+}
+
+// primeAccount pings an account now to start its session window.
+func (s *Server) primeAccount(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Minute)
+	defer cancel()
+	run, err := s.accounts.PrimeNow(ctx, id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+	v, _ := s.accounts.Get(id)
+	writeJSON(w, http.StatusOK, map[string]any{"run": run, "account": v})
+}
+
+// primerRuns lists the session primer's recent runs, optionally for one account.
+func (s *Server) primerRuns(w http.ResponseWriter, r *http.Request) {
+	accountID, _ := strconv.ParseInt(r.URL.Query().Get("account"), 10, 64)
+	runs, err := s.store.PrimerRuns(r.Context(), accountID, time.Now().AddDate(0, 0, -30), 200)
+	if err != nil {
+		writeStoreError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"runs": runs})
 }
 
 // refreshAllAccounts refreshes every enabled account's limits and subscription and reports

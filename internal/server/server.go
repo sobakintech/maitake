@@ -123,6 +123,8 @@ func New(d Deps) http.Handler {
 			r.Post("/accounts/{id}/refresh", s.refreshAccount)
 			r.Put("/accounts/{id}/web-session", s.setWebSession)
 			r.Post("/accounts/{id}/redeem", s.redeemAccount)
+			r.Post("/accounts/{id}/prime", s.primeAccount)
+			r.Get("/primer/runs", s.primerRuns)
 
 			r.Get("/usage", s.usage)
 			r.Get("/audit", s.listAudit)

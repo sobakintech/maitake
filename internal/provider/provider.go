@@ -81,6 +81,19 @@ type Redeemer interface {
 	Redeem(ctx context.Context, c Credentials, requestID, creditID string) (*RedeemResult, error)
 }
 
+// PingResult is the outcome of a minimal request sent to start a usage window.
+type PingResult struct {
+	Status  int
+	Windows []quota.Window
+	Plan    string
+}
+
+// Pinger is a provider that can send the smallest possible model request, used by the session
+// primer. A non-2xx answer is returned as an *HTTPError alongside the result.
+type Pinger interface {
+	Ping(ctx context.Context, c Credentials, model, prompt string) (*PingResult, error)
+}
+
 // ErrInvalidGrant means the refresh token is dead and the account needs a new login.
 var ErrInvalidGrant = errors.New("refresh token rejected; log in again")
 

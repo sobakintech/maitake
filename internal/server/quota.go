@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sobakintech/maitake/internal/accounts"
 	"github.com/sobakintech/maitake/internal/quota"
 	"github.com/sobakintech/maitake/internal/resets"
 	"github.com/sobakintech/maitake/internal/secret"
@@ -16,7 +17,8 @@ import (
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	// outboundProxy tells the UI that Claude TLS fingerprinting is off (it needs a direct connection).
-	writeJSON(w, http.StatusOK, map[string]any{"settings": s.settings.Get(), "outboundProxy": s.cfg.ProxyURL != ""})
+	writeJSON(w, http.StatusOK, map[string]any{"settings": s.settings.Get(), "outboundProxy": s.cfg.ProxyURL != "",
+		"serverTimezone": accounts.ZoneName(time.Local)})
 }
 
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +47,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if saved.Updates != prev.Updates {
 		s.updates.Wake()
 	}
+	s.accounts.WakePrimer()
 	writeJSON(w, http.StatusOK, map[string]any{"settings": saved})
 }
 
