@@ -14,6 +14,7 @@
 	import { toast } from 'svelte-sonner';
 	import PrivateText from '#lib/components/private-text.svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 
 	let {
 		account,
@@ -90,13 +91,13 @@
 	]);
 
 	let session = $state('');
-	let sessionBusy = $state(false);
+	let sessionBusy = $state<'connect' | 'remove' | null>(null);
 	let guide = $state(false);
 	const web = $derived(account?.subscription);
 
 	async function saveSession(value: string) {
 		if (!account) return;
-		sessionBusy = true;
+		sessionBusy = value ? 'connect' : 'remove';
 		try {
 			const { account: a } = await admin.setWebSession(account.id, value);
 			session = '';
@@ -108,7 +109,7 @@
 		} catch (err) {
 			toast.error(errorMessage(err));
 		} finally {
-			sessionBusy = false;
+			sessionBusy = null;
 		}
 	}
 </script>
@@ -194,14 +195,17 @@
 							<Button
 								type="button"
 								variant="outline"
-								disabled={!session.trim() || sessionBusy}
-								onclick={() => saveSession(session)}>Connect</Button
+								disabled={!session.trim() || !!sessionBusy}
+								onclick={() => saveSession(session)}
 							>
+								{#if sessionBusy === 'connect'}<LoaderIcon class="animate-spin" />{/if}
+								Connect
+							</Button>
 							{#if account.hasWebSession}
 								<Button
 									type="button"
 									variant="ghost"
-									disabled={sessionBusy}
+									disabled={!!sessionBusy}
 									onclick={() => saveSession('')}>Remove</Button
 								>
 							{/if}
