@@ -91,7 +91,6 @@
 		try {
 			await admin.refreshAccount(a.id);
 			await invalidateAll();
-			toast.success(`Refreshed ${a.label}`);
 		} catch (e) {
 			toast.error(errorMessage(e));
 		} finally {
@@ -102,14 +101,15 @@
 	async function refreshAll() {
 		refreshing = true;
 		try {
-			const { refreshed, failed } = await admin.refreshAll();
+			const { failed } = await admin.refreshAll();
 			await invalidateAll();
-			if (failed.length === 0) {
-				toast.success(`Refreshed ${refreshed} ${refreshed === 1 ? 'account' : 'accounts'}`);
-			} else {
-				toast.warning(`Refreshed ${refreshed}, ${failed.length} failed`, {
-					description: failed.map((f) => `${f.label}: ${f.error}`).join('; ')
-				});
+			if (failed.length > 0) {
+				toast.error(
+					`${failed.length} ${failed.length === 1 ? 'account' : 'accounts'} failed to refresh`,
+					{
+						description: failed.map((f) => `${f.label}: ${f.error}`).join('; ')
+					}
+				);
 			}
 		} catch (e) {
 			toast.error(errorMessage(e));

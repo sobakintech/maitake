@@ -71,7 +71,7 @@
 		try {
 			await api.deleteUser(data.user.id);
 			draft.reset();
-			toast.success(`Deleted ${data.user.name}`);
+			toast.success('User deleted');
 			await goto('/users', { invalidateAll: true });
 		} catch (err) {
 			toast.error(errorMessage(err));
@@ -146,11 +146,7 @@
 				<Switch
 					id="user-disabled"
 					checked={data.user.disabled}
-					onCheckedChange={(v) =>
-						run(
-							() => api.updateUser(data.user.id, { disabled: v }),
-							v ? 'User disabled' : 'User enabled'
-						)}
+					onCheckedChange={(v) => run(() => api.updateUser(data.user.id, { disabled: v }))}
 				/>
 			</Field.Field>
 			<Field.Field orientation="horizontal">

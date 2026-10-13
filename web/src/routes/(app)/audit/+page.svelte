@@ -90,8 +90,8 @@
 	async function clearMatching() {
 		clearOpen = false;
 		try {
-			const { deleted } = await admin.clearAudit(data.filter);
-			toast.success(`Deleted ${deleted} ${deleted === 1 ? 'entry' : 'entries'}`);
+			await admin.clearAudit(data.filter);
+			toast.success('Deleted');
 			await invalidateAll();
 		} catch (err) {
 			toast.error(errorMessage(err));

@@ -41,7 +41,6 @@
 					action: { label: 'Set times', onClick: onOpen },
 					duration: 10_000
 				});
-			else toast.success(on ? 'Session primer on' : 'Session primer off');
 			await invalidateAll();
 		} catch (e) {
 			toast.error(errorMessage(e));

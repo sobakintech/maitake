@@ -55,12 +55,7 @@
 		try {
 			updates = (await admin.checkUpdates()).updates;
 			if (updates.error) toast.error(updates.error);
-			else {
-				await invalidateAll();
-				const n = updates.newer.length;
-				if (n) toast.info(`${n} ${n === 1 ? 'update' : 'updates'} available`);
-				else toast.success("You're on the latest version");
-			}
+			else await invalidateAll();
 		} catch (err) {
 			toast.error(errorMessage(err));
 		} finally {
@@ -95,8 +90,8 @@
 	async function clearAudit() {
 		clearAuditOpen = false;
 		try {
-			const { deleted } = await admin.clearAudit({});
-			toast.success(`Deleted ${deleted} ${deleted === 1 ? 'entry' : 'entries'}`);
+			await admin.clearAudit({});
+			toast.success('Deleted');
 		} catch (err) {
 			toast.error(errorMessage(err));
 		}
@@ -105,8 +100,8 @@
 	async function clearCopies() {
 		clearOpen = false;
 		try {
-			const { cleared } = await admin.clearKeyCopies();
-			toast.success(`Deleted ${cleared} stored ${cleared === 1 ? 'copy' : 'copies'}`);
+			await admin.clearKeyCopies();
+			toast.success('Deleted');
 		} catch (err) {
 			toast.error(errorMessage(err));
 		}

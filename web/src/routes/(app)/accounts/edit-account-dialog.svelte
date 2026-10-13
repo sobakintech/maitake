@@ -101,10 +101,8 @@
 			const { account: a } = await admin.setWebSession(account.id, value);
 			session = '';
 			const sub = a.subscription;
-			if (!value) toast.success('claude.ai session removed');
-			else if (sub?.webError) toast.error(`Saved, but: ${sub.webError}`);
-			else if (sub?.until)
-				toast.success(`Connected · renews ${new Date(sub.until).toLocaleDateString()}`);
+			if (!value) toast.success('Removed');
+			else if (sub?.webError) toast.error(sub.webError);
 			else toast.success('Connected');
 			await invalidateAll();
 		} catch (err) {

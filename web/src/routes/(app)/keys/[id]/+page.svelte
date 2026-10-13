@@ -135,7 +135,6 @@
 	async function toggleDisabled(v: boolean) {
 		try {
 			await api.updateKey(data.key.id, { disabled: !v });
-			toast.success(v ? 'Key enabled' : 'Key disabled');
 			await invalidateAll();
 		} catch (e) {
 			toast.error(errorMessage(e));

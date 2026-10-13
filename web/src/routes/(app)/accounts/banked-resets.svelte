@@ -50,7 +50,6 @@
 		try {
 			const { result } = await admin.redeem(account.id, creditId);
 			let msg = resultText[result.code] ?? `Result: ${result.code}`;
-			if (result.windowsReset?.length) msg += ` (${result.windowsReset.join(', ')})`;
 			if (result.code === 'reset' || result.code === 'already_redeemed') toast.success(msg);
 			else toast.info(msg);
 			await invalidateAll();
@@ -64,7 +63,6 @@
 	async function setAuto(on: boolean) {
 		try {
 			await admin.updateAccount(account.id, { redeem: { ...account.redeem, enabled: on } });
-			toast.success(on ? 'Automatic use on' : 'Automatic use off');
 			await invalidateAll();
 		} catch (e) {
 			toast.error(errorMessage(e));

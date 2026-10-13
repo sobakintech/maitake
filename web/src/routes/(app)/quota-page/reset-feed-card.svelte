@@ -52,7 +52,6 @@
 			await new Promise((r) => setTimeout(r, 2500));
 			await invalidateAll();
 			if (snapshot.error) toast.error(snapshot.error);
-			else toast.success(`${name} reset feed checked`);
 		} catch (e) {
 			toast.error(errorMessage(e));
 		} finally {

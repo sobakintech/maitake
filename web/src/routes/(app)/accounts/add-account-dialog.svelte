@@ -85,8 +85,8 @@
 		pollTimer = undefined;
 	}
 
-	async function done(label: string) {
-		toast.success(`Added ${label}`);
+	async function done() {
+		toast.success('Account added');
 		device = null;
 		open = false;
 		await invalidateAll();
@@ -111,8 +111,8 @@
 		busy = true;
 		error = '';
 		try {
-			const { account } = await admin.completeOAuth(oauth.sessionId, callback);
-			await done(account.label);
+			await admin.completeOAuth(oauth.sessionId, callback);
+			await done();
 		} catch (e) {
 			error = errorMessage(e);
 		} finally {
@@ -131,7 +131,7 @@
 					const s = await admin.deviceStatus(device.sessionId);
 					if (s.status === 'done' && s.account) {
 						stopPolling();
-						await done(s.account.label);
+						await done();
 					} else if (s.status === 'error') {
 						stopPolling();
 						error = s.error ?? 'Login failed';
@@ -153,8 +153,8 @@
 		busy = true;
 		error = '';
 		try {
-			const { account } = await admin.importAccount(importProvider, importJSON);
-			await done(account.label);
+			await admin.importAccount(importProvider, importJSON);
+			await done();
 		} catch (e) {
 			error = errorMessage(e);
 		} finally {
