@@ -3,7 +3,11 @@
 	import { money } from '#lib/format.js';
 	import QuotaMeter from './quota-meter.svelte';
 
-	let { quota }: { quota: QuotaSnapshot | null } = $props();
+	let {
+		quota,
+		compact = false,
+		dense = false
+	}: { quota: QuotaSnapshot | null; compact?: boolean; dense?: boolean } = $props();
 
 	function remaining(w: QuotaWindow) {
 		if (w.resetsAt && new Date(w.resetsAt) <= new Date()) return 100;
@@ -19,7 +23,7 @@
 
 	function values(w: QuotaWindow, r: number) {
 		const a = w.amount;
-		if (a) {
+		if (a && !compact) {
 			const used = r >= 100 ? 0 : a.used;
 			const limit = money(a.limit, a.currency);
 			return {
@@ -32,7 +36,7 @@
 </script>
 
 {#if quota?.windows?.length}
-	<div class="space-y-3">
+	<div class={compact ? 'flex flex-wrap gap-x-5 gap-y-2' : dense ? 'space-y-2.5' : 'space-y-3'}>
 		{#each quota.windows as w (w.id)}
 			{@const r = remaining(w)}
 			<QuotaMeter
@@ -42,6 +46,8 @@
 				values={values(w, r)}
 				resetsAt={w.resetsAt}
 				pace={r >= 100 ? undefined : w.pace}
+				{compact}
+				{dense}
 				detail={w.detail ??
 					(w.kind === 'session' && !w.resetsAt && !w.usedPercent
 						? 'Starts when a message is sent'
@@ -50,7 +56,7 @@
 		{/each}
 	</div>
 {:else}
-	<p class="text-sm text-muted-foreground">
+	<p class="{compact ? 'truncate text-xs' : 'text-sm'} text-muted-foreground">
 		{quota?.error ? `Couldn't load limits: ${quota.error}` : 'No limit data yet.'}
 	</p>
 {/if}

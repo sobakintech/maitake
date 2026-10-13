@@ -92,7 +92,7 @@
 {/snippet}
 
 {#if banked}
-	<div class="space-y-2 rounded-lg bg-muted/40 p-3">
+	<div class="space-y-2 rounded-lg bg-muted/40 px-3 py-2">
 		<div class="flex items-center justify-between gap-3">
 			<p class="flex items-center gap-2 text-sm">
 				<TimerResetIcon class="size-4 text-muted-foreground" />
@@ -122,8 +122,8 @@
 		{#if banked.available > 0}
 			<ul class="divide-y rounded-md border bg-background">
 				{#each credits as c, i (c.id)}
-					<li class="flex items-center justify-between gap-3 px-3 py-2">
-						<div class="min-w-0 space-y-0.5">
+					<li class="flex items-center justify-between gap-3 px-3 py-1.5">
+						<div class="min-w-0 space-y-0.5 leading-tight">
 							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
 								<span>{c.title || 'Rate-limit reset'}</span>
 								{#if (c.count ?? 1) > 1}
@@ -152,7 +152,7 @@
 					</li>
 				{/each}
 				{#if unlisted > 0 || credits.length === 0}
-					<li class="flex items-center justify-between gap-3 px-3 py-2">
+					<li class="flex items-center justify-between gap-3 px-3 py-1.5">
 						<p class="text-xs text-muted-foreground">
 							{credits.length === 0
 								? "Details weren't returned for these."
