@@ -12,7 +12,6 @@
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import ServerIcon from '@lucide/svelte/icons/server';
-	import ChartColumnIcon from '@lucide/svelte/icons/chart-column';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
@@ -42,7 +41,6 @@
 			label: 'Activity',
 			items: [
 				{ href: '/timeline', label: 'Timeline', icon: CalendarClockIcon },
-				{ href: '/usage', label: 'Usage', icon: ChartColumnIcon },
 				{ href: '/audit', label: 'Audit log', icon: ScrollTextIcon }
 			]
 		},

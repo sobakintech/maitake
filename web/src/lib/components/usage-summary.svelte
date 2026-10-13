@@ -35,7 +35,9 @@
 	});
 
 	const fullHref = $derived(
-		`/usage?range=${range}` + (keyId ? `&keyId=${keyId}` : '') + (userId ? `&userId=${userId}` : '')
+		`/overview?range=${range}` +
+			(keyId ? `&keyId=${keyId}` : '') +
+			(userId ? `&userId=${userId}` : '')
 	);
 	const t = $derived(usage?.totals);
 	const series = $derived(usage ? fillSeries(usage, metric) : []);
