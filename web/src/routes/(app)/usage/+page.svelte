@@ -5,7 +5,7 @@
 	import { compact, duration, integer } from '#lib/format.js';
 	import { fillSeries, type Metric } from '#lib/series.js';
 	import BreakdownTable from '#lib/components/breakdown-table.svelte';
-	import ColumnChart from '#lib/components/column-chart.svelte';
+	import LineChart from '#lib/components/line-chart.svelte';
 	import StatTile from '#lib/components/stat-tile.svelte';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
@@ -147,7 +147,7 @@
 			</Card.Action>
 		</Card.Header>
 		<Card.Content>
-			<ColumnChart
+			<LineChart
 				data={series}
 				label={metric === 'requests' ? 'Requests' : 'Tokens'}
 				format={(v) => compact(v)}

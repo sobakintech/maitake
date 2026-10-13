@@ -3,7 +3,7 @@
 	import { compact, duration, integer } from '#lib/format.js';
 	import { fillSeries, type Metric } from '#lib/series.js';
 	import BreakdownTable from './breakdown-table.svelte';
-	import ColumnChart from './column-chart.svelte';
+	import LineChart from './line-chart.svelte';
 	import StatTile from './stat-tile.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -109,7 +109,7 @@
 							<ToggleGroup.Item value="tokens" class="px-3">Tokens</ToggleGroup.Item>
 						</ToggleGroup.Root>
 					</div>
-					<ColumnChart
+					<LineChart
 						data={series}
 						label={metric === 'requests' ? 'Requests' : 'Tokens'}
 						format={(v) => compact(v)}

@@ -5,7 +5,7 @@
 	import AccountQuota from '#lib/components/account-quota.svelte';
 	import PrivateText from '#lib/components/private-text.svelte';
 	import BreakdownTable from '#lib/components/breakdown-table.svelte';
-	import ColumnChart from '#lib/components/column-chart.svelte';
+	import LineChart from '#lib/components/line-chart.svelte';
 	import StatTile from '#lib/components/stat-tile.svelte';
 	import ProviderLogo from '#lib/components/provider-logo.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -67,7 +67,7 @@
 			<Card.Title>Requests per hour</Card.Title>
 		</Card.Header>
 		<Card.Content>
-			<ColumnChart data={series} label="Requests" format={(v) => compact(v)} />
+			<LineChart data={series} label="Requests" format={(v) => compact(v)} />
 		</Card.Content>
 	</Card.Root>
 
