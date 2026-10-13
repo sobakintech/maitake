@@ -257,7 +257,7 @@
 								{
 									value: 'both',
 									label: 'Both',
-									hint: '"Resets Oct 12, 3:00 PM · in 2h 15m"'
+									hint: '"Resets in 2h 15m · Oct 12, 3:00 PM"'
 								},
 								{ value: 'relative', label: 'Countdown', hint: '"Resets in 2h 15m"' },
 								{ value: 'exact', label: 'Date and time' },

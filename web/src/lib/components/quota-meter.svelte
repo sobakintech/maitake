@@ -36,7 +36,7 @@
 	function resetText(at: string) {
 		if (resetFormat === 'exact') return `Resets ${shortDateTime(at)}`;
 		if (resetFormat === 'relative') return `Resets in ${countdown(at)}`;
-		return `Resets ${shortDateTime(at)} · in ${countdown(at)}`;
+		return `Resets in ${countdown(at)} · ${shortDateTime(at)}`;
 	}
 
 	const fallbackWidth: Record<Level, number> = { plenty: 85, ok: 50, low: 15, out: 0 };

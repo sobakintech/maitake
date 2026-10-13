@@ -54,7 +54,7 @@
 
 	function expiryText(iso: string) {
 		if (view.resetFormat === 'exact') return shortDateTime(iso);
-		if (view.resetFormat === 'both') return `${shortDateTime(iso)} · in ${countdown(iso)}`;
+		if (view.resetFormat === 'both') return `in ${countdown(iso)} · ${shortDateTime(iso)}`;
 		return `in ${countdown(iso)}`;
 	}
 </script>
