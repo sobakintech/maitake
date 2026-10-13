@@ -332,7 +332,7 @@
 						<TimerResetIcon class="size-3.5 shrink-0" />
 						<span class="truncate underline-offset-2 hover:underline">
 							{n} banked reset{n === 1 ? '' : 's'}{#if expires}
-								{' · '}<span
+								&nbsp;· <span
 									class={new Date(expires).getTime() - Date.now() < 3 * 86_400_000
 										? 'text-destructive'
 										: ''}>expires in {countdown(expires)}</span
