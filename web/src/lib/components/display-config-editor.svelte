@@ -265,6 +265,27 @@
 							]
 						)}
 					</Field.Set>
+					<Field.Set>
+						<Field.Legend variant="label">Pace</Field.Legend>
+						<Field.Description
+							>Projects each limit to its reset at the rate it's being used, and marks where even
+							use would be on the bar.</Field.Description
+						>
+						{@render radios(
+							'pace',
+							config.pace,
+							(v) => (config.pace = v as ProfileConfig['pace']),
+							[
+								{
+									value: 'warnings',
+									label: 'Only when running low',
+									hint: '"~4% spare", "Limit in 1h 20m"'
+								},
+								{ value: 'always', label: 'Always', hint: 'Also "~45% left at reset"' },
+								{ value: 'hidden', label: 'Hidden' }
+							]
+						)}
+					</Field.Set>
 					{@render check(
 						'updated',
 						'Show when limits were last updated',

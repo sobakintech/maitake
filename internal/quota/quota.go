@@ -38,6 +38,8 @@ type Window struct {
 	Detail string `json:"detail,omitempty"`
 	// Amount is set for allowances measured in money rather than a percentage of a limit.
 	Amount *Amount `json:"amount,omitempty"`
+	// Pace is computed when serving the admin dashboard and never stored.
+	Pace *Pace `json:"pace,omitempty"`
 }
 
 type Amount struct {

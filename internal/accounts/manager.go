@@ -167,14 +167,14 @@ type View struct {
 }
 
 func (m *Manager) viewOf(e *entry) View {
-	v := View{Account: e.acct, Quota: e.snap, Subscription: e.sub, Redeem: ParseRedeemOverride(e.acct.RedeemPolicy)}
+	now := time.Now()
+	v := View{Account: e.acct, Quota: e.snap.WithPace(now), Subscription: e.sub, Redeem: ParseRedeemOverride(e.acct.RedeemPolicy)}
 	s := m.settings()
 	v.RedeemEffective = v.Redeem.Apply(s.Redeem)
 	v.Primer = ParseAccountPrimer(e.acct.PrimerPolicy)
 	s.Primer.Normalize()
 	v.PrimerEffective = s.Primer.Effective(e.acct.Provider, v.Primer)
 	v.PrimerNext, v.PrimerLast, v.PrimerBusy = e.primer.next, e.primer.last, e.primer.busy
-	now := time.Now()
 	for model, until := range e.modelCool {
 		if until.After(now) {
 			if v.ModelCooldowns == nil {

@@ -10,6 +10,16 @@ export type QuotaWindow = {
 	limited?: boolean;
 	detail?: string;
 	amount?: Amount;
+	pace?: Pace;
+};
+
+// Where a window lands at reset if usage keeps its rate so far. Numbers are left out when the
+// quota page profile hides them.
+export type Pace = {
+	status: 'on_track' | 'close' | 'over';
+	projectedUsed?: number;
+	elapsed?: number;
+	runsOutAt?: string;
 };
 
 export type Amount = { currency: string; limit: number; used: number };
@@ -339,6 +349,7 @@ export type ProfileConfig = {
 	numberFormat: 'remaining' | 'used' | 'bar' | 'level';
 	resetFormat: 'both' | 'relative' | 'exact' | 'hidden';
 	showUpdatedAt: boolean;
+	pace: 'warnings' | 'always' | 'hidden';
 	banked: 'count' | 'hidden' | 'count_expiry';
 	bankedMode: 'pooled' | 'accounts';
 	codexResets: ResetsDisplay;
@@ -366,6 +377,7 @@ export type WindowView = {
 	level: Level;
 	resetsAt?: string;
 	amount?: Amount;
+	pace?: Pace;
 };
 
 export type BankedView = { available: number; expiries?: string[] };

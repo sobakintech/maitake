@@ -98,6 +98,7 @@
 				{modeFallback}
 				resetsAt={w.resetsAt}
 				resetFormat={view.resetFormat}
+				pace={w.pace}
 			/>
 		{:else}
 			<p class="text-sm text-muted-foreground">No limit data yet.</p>

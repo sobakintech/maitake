@@ -64,6 +64,7 @@ type WindowView struct {
 	ResetsAt *time.Time `json:"resetsAt,omitempty"`
 	// Amount is shown for money allowances when the profile allows it.
 	Amount *Amount `json:"amount,omitempty"`
+	Pace   *Pace   `json:"pace,omitempty"`
 }
 
 type BankedView struct {
@@ -111,7 +112,7 @@ func remaining(w Window, now time.Time) float64 {
 	return math.Max(0, math.Min(100, r))
 }
 
-func (p *Profile) windowView(w Window, rem float64, now time.Time) WindowView {
+func (p *Profile) windowView(w Window, rem float64, pace *Pace, now time.Time) WindowView {
 	v := WindowView{ID: w.ID, Kind: w.Kind, Label: w.Label, Level: level(rem)}
 	switch p.NumberFormat {
 	case "remaining":
@@ -135,7 +136,53 @@ func (p *Profile) windowView(w Window, rem float64, now time.Time) WindowView {
 		}
 		v.Amount = &a
 	}
+	v.Pace = p.paceView(pace)
 	return v
+}
+
+// paceView trims a projection down to what the profile's number and reset formats allow.
+func (p *Profile) paceView(pc *Pace) *Pace {
+	if pc == nil || p.Pace == "hidden" || (p.Pace == "warnings" && pc.Status == PaceOnTrack) {
+		return nil
+	}
+	v := Pace{Status: pc.Status}
+	switch p.NumberFormat {
+	case "level":
+		return &v
+	case "bar":
+		v.ProjectedUsed = math.Round(pc.ProjectedUsed/10) * 10
+	default:
+		v.ProjectedUsed = round1(pc.ProjectedUsed)
+	}
+	if p.ResetFormat != "hidden" {
+		v.Elapsed = round1(pc.Elapsed)
+	}
+	if pc.RunsOutAt != nil {
+		t := pc.RunsOutAt.Truncate(time.Minute)
+		v.RunsOutAt = &t
+	}
+	return &v
+}
+
+// poolPace combines per-account projections for the average and total aggregates. Accounts
+// without a projection are assumed to stay where they are.
+func poolPace(useds []float64, paces []*Pace) *Pace {
+	var projected, elapsed float64
+	tracked := 0
+	for i, pc := range paces {
+		if pc == nil {
+			projected += useds[i]
+			continue
+		}
+		projected += pc.ProjectedUsed
+		elapsed += pc.Elapsed
+		tracked++
+	}
+	if tracked == 0 {
+		return nil
+	}
+	projected /= float64(len(paces))
+	return &Pace{Status: paceStatus(projected), ProjectedUsed: projected, Elapsed: elapsed / float64(tracked)}
 }
 
 func (p *Profile) bankedView(banks []*Banked, now time.Time) *BankedView {
@@ -308,7 +355,7 @@ func (p *Profile) accountEntry(a AccountInfo, index int, now time.Time) EntryVie
 	}
 	for _, w := range s.Windows {
 		if p.showsKind(w.Kind) {
-			e.Windows = append(e.Windows, p.windowView(w, remaining(w, now), now))
+			e.Windows = append(e.Windows, p.windowView(w, remaining(w, now), ProjectPace(w, now), now))
 		}
 	}
 	if p.BankedMode == "accounts" {
@@ -326,6 +373,7 @@ func (p *Profile) poolEntry(accounts []AccountInfo, now time.Time) *EntryView {
 	type agg struct {
 		w     Window
 		rems  []float64
+		paces []*Pace
 		reset *time.Time
 	}
 	byID := map[string]*agg{}
@@ -351,6 +399,7 @@ func (p *Profile) poolEntry(accounts []AccountInfo, now time.Time) *EntryView {
 				order = append(order, w.ID)
 			}
 			g.rems = append(g.rems, remaining(w, now))
+			g.paces = append(g.paces, ProjectPace(w, now))
 			if w.ResetsAt != nil && w.ResetsAt.After(now) && (g.reset == nil || w.ResetsAt.Before(*g.reset)) {
 				g.reset = w.ResetsAt
 			}
@@ -361,23 +410,29 @@ func (p *Profile) poolEntry(accounts []AccountInfo, now time.Time) *EntryView {
 	for _, id := range order {
 		g := byID[id]
 		var rem float64
+		var pace *Pace
 		switch p.PoolAggregate {
-		case "min":
-			rem = slices.Min(g.rems)
-		case "max":
-			rem = slices.Max(g.rems)
+		case "min", "max":
+			pick := slices.Index(g.rems, slices.Min(g.rems))
+			if p.PoolAggregate == "max" {
+				pick = slices.Index(g.rems, slices.Max(g.rems))
+			}
+			rem, pace = g.rems[pick], g.paces[pick]
 		default:
-			for _, r := range g.rems {
+			useds := make([]float64, len(g.rems))
+			for i, r := range g.rems {
 				rem += r
+				useds[i] = 100 - r
 			}
 			rem /= float64(len(g.rems))
+			pace = poolPace(useds, g.paces)
 		}
 		w := g.w
 		w.ResetsAt = g.reset
 		w.Limited = false
 		w.Amount = nil // amounts differ per account
 		w.UsedPercent = 100 - rem
-		v := p.windowView(w, rem, now)
+		v := p.windowView(w, rem, pace, now)
 		if p.PoolAggregate == "total" && p.NumberFormat != "level" {
 			total := 0.0
 			for _, r := range g.rems {

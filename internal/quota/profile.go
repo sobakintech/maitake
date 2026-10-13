@@ -72,6 +72,9 @@ type Profile struct {
 	// ResetFormat: "both" (date and countdown), "exact", "relative" or "hidden".
 	ResetFormat   string `json:"resetFormat"`
 	ShowUpdatedAt bool   `json:"showUpdatedAt"`
+	// Pace: "warnings" (only when a window is projected to finish near or past its limit),
+	// "always" or "hidden".
+	Pace string `json:"pace"`
 
 	// Banked: "hidden", "count" or "count_expiry". BankedMode: "accounts" or "pooled".
 	Banked     string `json:"banked"`
@@ -99,6 +102,7 @@ func DefaultProfile() Profile {
 		NumberFormat:  "remaining",
 		ResetFormat:   "both",
 		ShowUpdatedAt: true,
+		Pace:          "warnings",
 		Banked:        "count",
 		BankedMode:    "pooled",
 	}
@@ -132,6 +136,7 @@ func (p *Profile) Normalize() {
 	p.AccountNaming = oneOf(p.AccountNaming, "anonymous", "label", "alias", "hidden")
 	p.NumberFormat = oneOf(p.NumberFormat, "remaining", "used", "bar", "level")
 	p.ResetFormat = oneOf(p.ResetFormat, "both", "relative", "exact", "hidden")
+	p.Pace = oneOf(p.Pace, "warnings", "always", "hidden")
 	p.Banked = oneOf(p.Banked, "count", "hidden", "count_expiry")
 	p.BankedMode = oneOf(p.BankedMode, "pooled", "accounts")
 	if p.Providers == nil {

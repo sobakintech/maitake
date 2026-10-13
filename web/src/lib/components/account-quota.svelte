@@ -41,6 +41,7 @@
 				level={level(r)}
 				values={values(w, r)}
 				resetsAt={w.resetsAt}
+				pace={r >= 100 ? undefined : w.pace}
 				detail={w.detail ??
 					(w.kind === 'session' && !w.resetsAt && !w.usedPercent
 						? 'Not started; the next request starts it'
