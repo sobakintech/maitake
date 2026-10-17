@@ -20,6 +20,17 @@ A multi-user proxy that serves AI subscriptions (ChatGPT, Claude and more) as Cl
 - A self-serve quota page: anyone with a key can check the remaining limits and reset times themselves, showing only what the admin chose for that key
 - Announced global resets from [claude-resets.com](https://claude-resets.com) and [codex-resets.com](https://codex-resets.com), plus upcoming and predicted Codex resets
 
+## How it compares to CLIProxyAPI
+
+CLIProxyAPI supports far more providers and is the better fit if you want all of them for yourself. maitake is built for one instance that several people share, managed entirely from the dashboard.
+
+| | maitake | CLIProxyAPI |
+| --- | --- | --- |
+| Client keys | Per-user keys, each with its own allowed models, rate limits and expiry | A plain list of keys in `config.yaml` |
+| Quota for key holders | Self-serve quota page per key, showing only what the admin allows | Only in the management panel, behind the management key |
+| Configuration | Everything in the dashboard, stored in SQLite with credentials encrypted | `config.yaml` plus a JSON auth file per account; the panel edits them |
+| Providers | Claude and Codex today, more [planned](#planned) | Claude, Codex, Gemini, Antigravity, Grok, Kimi and more |
+
 ## Quick start
 
 Run the published image with Docker Compose. [`docker-compose.yml`](docker-compose.yml) is all it takes:
