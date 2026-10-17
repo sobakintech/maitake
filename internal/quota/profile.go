@@ -2,6 +2,7 @@ package quota
 
 import (
 	"encoding/json"
+	"math"
 	"slices"
 )
 
@@ -17,10 +18,12 @@ type PageSettings struct {
 	PublicProfileID int64 `json:"publicProfileId"`
 	// DefaultProfileID is the pre-0.2 setting; in public mode it seeds PublicProfileID.
 	DefaultProfileID int64 `json:"defaultProfileId,omitempty"`
+	// RefreshSeconds is how often an open page reloads itself; 0 turns it off.
+	RefreshSeconds int `json:"refreshSeconds"`
 }
 
 func DefaultPageSettings() PageSettings {
-	return PageSettings{Enabled: true, Access: "key", Title: "Quota"}
+	return PageSettings{Enabled: true, Access: "key", Title: "Quota", RefreshSeconds: 60}
 }
 
 func (p *PageSettings) Normalize() {
@@ -38,6 +41,11 @@ func (p *PageSettings) Normalize() {
 	}
 	if len(p.Notice) > 2000 {
 		p.Notice = p.Notice[:2000]
+	}
+	if p.RefreshSeconds < 0 {
+		p.RefreshSeconds = 0
+	} else if p.RefreshSeconds > 0 {
+		p.RefreshSeconds = min(max(p.RefreshSeconds, 10), 3600)
 	}
 }
 
@@ -76,9 +84,30 @@ type Profile struct {
 	// "always" or "hidden".
 	Pace string `json:"pace"`
 
-	// Banked: "hidden", "count" or "count_expiry". BankedMode: "accounts" or "pooled".
+	// Levels are the percentages left at or below which a limit counts as low or only OK.
+	Levels struct {
+		Low float64 `json:"low"`
+		OK  float64 `json:"ok"`
+	} `json:"levels"`
+
+	// Banked: "hidden", "count", "count_expiry" or "full" (every reset with its details).
+	// BankedMode: "accounts" or "pooled".
 	Banked     string `json:"banked"`
 	BankedMode string `json:"bankedMode"`
+
+	// Layout is how entries are first shown: "cards" or "rows". AllowLayoutSwitch lets viewers
+	// switch, remembered per browser.
+	Layout            string `json:"layout"`
+	AllowLayoutSwitch bool   `json:"allowLayoutSwitch"`
+	// Width: "narrow", "wide" or "full".
+	Width string `json:"width"`
+	// AccountSort: "default" (the pool's order), "name", "most_left" or "least_left".
+	AccountSort string `json:"accountSort"`
+	// FeedsPosition puts the reset feeds "bottom" or "top".
+	FeedsPosition    string `json:"feedsPosition"`
+	ShowAccountCount bool   `json:"showAccountCount"`
+	// AllowFlip lets viewers click a number to switch between left and used.
+	AllowFlip bool `json:"allowFlip"`
 
 	CodexResets  ResetsDisplay `json:"codexResets"`
 	ClaudeResets ResetsDisplay `json:"claudeResets"`
@@ -105,7 +134,16 @@ func DefaultProfile() Profile {
 		Pace:          "warnings",
 		Banked:        "count",
 		BankedMode:    "pooled",
+
+		Layout:            "cards",
+		AllowLayoutSwitch: true,
+		Width:             "narrow",
+		AccountSort:       "default",
+		FeedsPosition:     "bottom",
+		ShowAccountCount:  true,
+		AllowFlip:         true,
 	}
+	p.Levels.Low, p.Levels.OK = 20, 50
 	p.Windows.Session = true
 	p.Windows.Weekly = true
 	p.Windows.ModelWeekly = true
@@ -137,8 +175,14 @@ func (p *Profile) Normalize() {
 	p.NumberFormat = oneOf(p.NumberFormat, "remaining", "used", "bar", "level")
 	p.ResetFormat = oneOf(p.ResetFormat, "both", "relative", "exact", "hidden")
 	p.Pace = oneOf(p.Pace, "warnings", "always", "hidden")
-	p.Banked = oneOf(p.Banked, "count", "hidden", "count_expiry")
+	p.Banked = oneOf(p.Banked, "count", "hidden", "count_expiry", "full")
 	p.BankedMode = oneOf(p.BankedMode, "pooled", "accounts")
+	p.Layout = oneOf(p.Layout, "cards", "rows")
+	p.Width = oneOf(p.Width, "narrow", "wide", "full")
+	p.AccountSort = oneOf(p.AccountSort, "default", "name", "most_left", "least_left")
+	p.FeedsPosition = oneOf(p.FeedsPosition, "bottom", "top")
+	p.Levels.Low = math.Min(100, math.Max(0, p.Levels.Low))
+	p.Levels.OK = math.Min(100, math.Max(p.Levels.Low, p.Levels.OK))
 	if p.Providers == nil {
 		p.Providers = []string{}
 	}

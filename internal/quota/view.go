@@ -23,15 +23,24 @@ type AccountInfo struct {
 var providerNames = map[string]string{"claude": "Claude", "codex": "Codex"}
 
 type View struct {
-	Title         string         `json:"title"`
-	Notice        string         `json:"notice"`
-	NumberFormat  string         `json:"numberFormat"`
-	ResetFormat   string         `json:"resetFormat"`
-	ShowUpdatedAt bool           `json:"showUpdatedAt"`
-	Providers     []ProviderView `json:"providers"`
-	CodexResets   *ResetsView    `json:"codexResets,omitempty"`
-	ClaudeResets  *ResetsView    `json:"claudeResets,omitempty"`
-	GeneratedAt   time.Time      `json:"generatedAt"`
+	Title         string `json:"title"`
+	Notice        string `json:"notice"`
+	NumberFormat  string `json:"numberFormat"`
+	ResetFormat   string `json:"resetFormat"`
+	ShowUpdatedAt bool   `json:"showUpdatedAt"`
+
+	Layout            string `json:"layout"`
+	AllowLayoutSwitch bool   `json:"allowLayoutSwitch"`
+	AllowFlip         bool   `json:"allowFlip"`
+	Width             string `json:"width"`
+	FeedsPosition     string `json:"feedsPosition"`
+	ShowAccountCount  bool   `json:"showAccountCount"`
+	RefreshSeconds    int    `json:"refreshSeconds"`
+
+	Providers    []ProviderView `json:"providers"`
+	CodexResets  *ResetsView    `json:"codexResets,omitempty"`
+	ClaudeResets *ResetsView    `json:"claudeResets,omitempty"`
+	GeneratedAt  time.Time      `json:"generatedAt"`
 }
 
 type ProviderView struct {
@@ -70,6 +79,18 @@ type WindowView struct {
 type BankedView struct {
 	Available int         `json:"available"`
 	Expiries  []time.Time `json:"expiries,omitempty"`
+	// Credits lists each reset when the profile shows them in full.
+	Credits []BankedCreditView `json:"credits,omitempty"`
+}
+
+type BankedCreditView struct {
+	Title         string     `json:"title,omitempty"`
+	Count         int        `json:"count"`
+	GrantedAt     *time.Time `json:"grantedAt,omitempty"`
+	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
+	RequiresLimit bool       `json:"requiresLimit,omitempty"`
+	// Account names the account holding it, in a provider total.
+	Account string `json:"account,omitempty"`
 }
 
 type ExtraView struct {
@@ -85,13 +106,13 @@ type ResetsView struct {
 	Stats     *resets.Stats `json:"stats,omitempty"`
 }
 
-func level(remaining float64) string {
+func (p *Profile) level(remaining float64) string {
 	switch {
 	case remaining <= 0:
 		return "out"
-	case remaining <= 20:
+	case remaining <= p.Levels.Low:
 		return "low"
-	case remaining <= 50:
+	case remaining <= p.Levels.OK:
 		return "ok"
 	default:
 		return "plenty"
@@ -113,7 +134,7 @@ func remaining(w Window, now time.Time) float64 {
 }
 
 func (p *Profile) windowView(w Window, rem float64, pace *Pace, now time.Time) WindowView {
-	v := WindowView{ID: w.ID, Kind: w.Kind, Label: w.Label, Level: level(rem)}
+	v := WindowView{ID: w.ID, Kind: w.Kind, Label: w.Label, Level: p.level(rem)}
 	switch p.NumberFormat {
 	case "remaining":
 		val := round1(rem)
@@ -185,25 +206,39 @@ func poolPace(useds []float64, paces []*Pace) *Pace {
 	return &Pace{Status: paceStatus(projected), ProjectedUsed: projected, Elapsed: elapsed / float64(tracked)}
 }
 
-func (p *Profile) bankedView(banks []*Banked, now time.Time) *BankedView {
+// bankedView sums the banked resets of some accounts. owners names each bank's account for the
+// full list; it's nil for a single account.
+func (p *Profile) bankedView(banks []*Banked, owners []string, now time.Time) *BankedView {
 	if p.Banked == "hidden" {
 		return nil
 	}
 	var out BankedView
 	seen := false
-	for _, b := range banks {
+	for i, b := range banks {
 		if b == nil {
 			continue
 		}
 		seen = true
 		out.Available += b.Available
-		if p.Banked == "count_expiry" {
-			for _, c := range b.Credits {
-				if c.ExpiresAt != nil && c.ExpiresAt.After(now) {
-					for range min(c.Resets(), 20) {
-						out.Expiries = append(out.Expiries, *c.ExpiresAt)
-					}
+		if p.Banked == "count" {
+			continue
+		}
+		for _, c := range b.Credits {
+			if c.ExpiresAt != nil && !c.ExpiresAt.After(now) {
+				continue
+			}
+			if c.ExpiresAt != nil {
+				for range min(c.Resets(), 20) {
+					out.Expiries = append(out.Expiries, *c.ExpiresAt)
 				}
+			}
+			if p.Banked == "full" {
+				v := BankedCreditView{Title: c.Title, Count: c.Resets(), GrantedAt: c.GrantedAt,
+					ExpiresAt: c.ExpiresAt, RequiresLimit: c.RequiresLimit}
+				if owners != nil {
+					v.Account = owners[i]
+				}
+				out.Credits = append(out.Credits, v)
 			}
 		}
 	}
@@ -213,6 +248,14 @@ func (p *Profile) bankedView(banks []*Banked, now time.Time) *BankedView {
 	sort.Slice(out.Expiries, func(i, j int) bool { return out.Expiries[i].Before(out.Expiries[j]) })
 	if len(out.Expiries) > 20 {
 		out.Expiries = out.Expiries[:20]
+	}
+	// Soonest to expire first; resets that never expire go last.
+	sort.SliceStable(out.Credits, func(i, j int) bool {
+		a, b := out.Credits[i].ExpiresAt, out.Credits[j].ExpiresAt
+		return a != nil && (b == nil || a.Before(*b))
+	})
+	if len(out.Credits) > 100 {
+		out.Credits = out.Credits[:100]
 	}
 	return &out
 }
@@ -263,8 +306,17 @@ func Build(p Profile, page PageSettings, accounts []AccountInfo, feeds Feeds, no
 		NumberFormat:  p.NumberFormat,
 		ResetFormat:   p.ResetFormat,
 		ShowUpdatedAt: p.ShowUpdatedAt,
-		Providers:     []ProviderView{},
-		GeneratedAt:   now,
+
+		Layout:            p.Layout,
+		AllowLayoutSwitch: p.AllowLayoutSwitch,
+		AllowFlip:         p.AllowFlip && (p.NumberFormat == "remaining" || p.NumberFormat == "used"),
+		Width:             p.Width,
+		FeedsPosition:     p.FeedsPosition,
+		ShowAccountCount:  p.ShowAccountCount,
+		RefreshSeconds:    page.RefreshSeconds,
+
+		Providers:   []ProviderView{},
+		GeneratedAt: now,
 	}
 
 	for _, provider := range []string{"claude", "codex"} {
@@ -286,18 +338,21 @@ func Build(p Profile, page PageSettings, accounts []AccountInfo, feeds Feeds, no
 			for i, a := range visible {
 				pv.Accounts = append(pv.Accounts, p.accountEntry(a, i, now))
 			}
+			p.sortAccounts(pv.Accounts, visible, now)
 		}
 		if p.Mode != "accounts" {
 			pv.Pool = p.poolEntry(visible, now)
 		}
 		if p.BankedMode == "pooled" {
 			var banks []*Banked
-			for _, a := range visible {
+			var owners []string
+			for i, a := range visible {
 				if a.Snapshot != nil {
 					banks = append(banks, a.Snapshot.Banked)
+					owners = append(owners, p.entryName(a, i))
 				}
 			}
-			pv.Banked = p.bankedView(banks, now)
+			pv.Banked = p.bankedView(banks, owners, now)
 		}
 		view.Providers = append(view.Providers, pv)
 	}
@@ -359,7 +414,7 @@ func (p *Profile) accountEntry(a AccountInfo, index int, now time.Time) EntryVie
 		}
 	}
 	if p.BankedMode == "accounts" {
-		e.Banked = p.bankedView([]*Banked{s.Banked}, now)
+		e.Banked = p.bankedView([]*Banked{s.Banked}, nil, now)
 	}
 	e.Extra = p.extraView(s.Extra)
 	if p.ShowUpdatedAt && !s.UpdatedAt.IsZero() {
@@ -367,6 +422,51 @@ func (p *Profile) accountEntry(a AccountInfo, index int, now time.Time) EntryVie
 		e.UpdatedAt = &t
 	}
 	return e
+}
+
+// sortAccounts orders account entries, which line up with visible, by the profile's sort.
+func (p *Profile) sortAccounts(entries []EntryView, visible []AccountInfo, now time.Time) {
+	if p.AccountSort == "default" || len(entries) < 2 {
+		return
+	}
+	// least is the lowest share left across the windows the profile shows; no data sorts last.
+	least := make([]float64, len(visible))
+	for i, a := range visible {
+		least[i] = -1
+		if a.Snapshot == nil {
+			continue
+		}
+		for _, w := range a.Snapshot.Windows {
+			if p.showsKind(w.Kind) {
+				if r := remaining(w, now); least[i] < 0 || r < least[i] {
+					least[i] = r
+				}
+			}
+		}
+	}
+	idx := make([]int, len(entries))
+	for i := range idx {
+		idx[i] = i
+	}
+	sort.SliceStable(idx, func(x, y int) bool {
+		i, j := idx[x], idx[y]
+		switch p.AccountSort {
+		case "name":
+			return entries[i].Name < entries[j].Name
+		case "most_left":
+			return least[i] > least[j]
+		default:
+			if (least[i] < 0) != (least[j] < 0) {
+				return least[j] < 0
+			}
+			return least[i] < least[j]
+		}
+	})
+	sorted := make([]EntryView, len(entries))
+	for x, i := range idx {
+		sorted[x] = entries[i]
+	}
+	copy(entries, sorted)
 }
 
 func (p *Profile) poolEntry(accounts []AccountInfo, now time.Time) *EntryView {

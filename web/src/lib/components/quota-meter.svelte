@@ -13,6 +13,7 @@
 		level,
 		values,
 		modeFallback = 'left',
+		flip = true,
 		resetsAt,
 		resetFormat = 'both',
 		pace,
@@ -27,6 +28,8 @@
 		// The value both ways; clicking flips between them, hovering previews the other.
 		values?: { left: string; used: string };
 		modeFallback?: QuotaMode;
+		// Off pins the value to modeFallback and makes it plain text.
+		flip?: boolean;
 		resetsAt?: string | null;
 		resetFormat?: 'both' | 'relative' | 'exact' | 'hidden';
 		pace?: Pace;
@@ -37,7 +40,7 @@
 		dense?: boolean;
 	} = $props();
 
-	const mode = $derived(quotaMode.get(modeFallback));
+	const mode = $derived(flip ? quotaMode.get(modeFallback) : modeFallback);
 	const otherMode = $derived(mode === 'left' ? 'used' : 'left');
 	function resetText(at: string) {
 		if (resetFormat === 'exact') return `Resets ${shortDateTime(at)}`;
@@ -127,7 +130,7 @@
 	{:else if level === 'low'}
 		<TriangleAlertIcon class="size-3.5 self-center" style="color: var(--viz-warning)" />
 	{/if}
-	{#if values}
+	{#if values && flip}
 		<FlipValue {text} alt={values[otherMode]} onflip={() => quotaMode.set(otherMode)} />
 	{:else}
 		{text}

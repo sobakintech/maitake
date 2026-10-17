@@ -13,6 +13,7 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as RadioGroup from '#lib/components/ui/radio-group/index.js';
 
@@ -62,6 +63,24 @@
 			</div>
 		{/each}
 	</RadioGroup.Root>
+{/snippet}
+
+{#snippet percent(id: string, label: string, value: number, set: (v: number) => void)}
+	<Field.Field>
+		<Field.Label for={id} class="font-normal">{label}</Field.Label>
+		<div class="flex items-center gap-2">
+			<Input
+				{id}
+				type="number"
+				min={0}
+				max={100}
+				class="w-24"
+				{value}
+				oninput={(e) => set(Number(e.currentTarget.value))}
+			/>
+			<span class="text-sm text-muted-foreground">% left</span>
+		</div>
+	</Field.Field>
 {/snippet}
 
 {#snippet check(id: string, label: string, checked: boolean, set: (v: boolean) => void)}
@@ -133,7 +152,7 @@
 						</div>
 					</Field.Set>
 					<Field.Set>
-						<Field.Legend variant="label">Layout</Field.Legend>
+						<Field.Legend variant="label">Grouping</Field.Legend>
 						{@render radios(
 							'mode',
 							config.mode,
@@ -246,6 +265,29 @@
 								}
 							]
 						)}
+						{#if config.numberFormat === 'remaining' || config.numberFormat === 'used'}
+							{@render check(
+								'flip',
+								'Let viewers click a number to switch between left and used',
+								config.allowFlip,
+								(v) => (config.allowFlip = v)
+							)}
+						{/if}
+					</Field.Set>
+					<Field.Set>
+						<Field.Legend variant="label">Levels</Field.Legend>
+						<Field.Description
+							>How much has to be left before a limit counts as low and turns yellow, or reads as
+							only OK.</Field.Description
+						>
+						<div class="grid gap-3 sm:grid-cols-2">
+							{@render percent('lvl-low', 'Low at or below', config.levels.low, (v) => {
+								config.levels.low = v;
+							})}
+							{@render percent('lvl-ok', 'OK at or below', config.levels.ok, (v) => {
+								config.levels.ok = v;
+							})}
+						</div>
 					</Field.Set>
 					<Field.Set>
 						<Field.Legend variant="label">Reset times</Field.Legend>
@@ -297,6 +339,89 @@
 		</Card.Root>
 
 		<Card.Root>
+			<Card.Header><Card.Title>Layout</Card.Title></Card.Header>
+			<Card.Content>
+				<Field.Group>
+					<Field.Set>
+						<Field.Legend variant="label">Arrangement</Field.Legend>
+						{@render radios(
+							'layout',
+							config.layout,
+							(v) => (config.layout = v as ProfileConfig['layout']),
+							[
+								{ value: 'cards', label: 'Cards', hint: 'Full bars, with banked resets inline.' },
+								{
+									value: 'rows',
+									label: 'Rows',
+									hint: 'One compact line per account; banked resets open on click.'
+								}
+							]
+						)}
+						{@render check(
+							'layout-switch',
+							'Let viewers switch, remembered in their browser',
+							config.allowLayoutSwitch,
+							(v) => (config.allowLayoutSwitch = v)
+						)}
+					</Field.Set>
+					<Field.Set>
+						<Field.Legend variant="label">Page width</Field.Legend>
+						{@render radios(
+							'width',
+							config.width,
+							(v) => (config.width = v as ProfileConfig['width']),
+							[
+								{ value: 'narrow', label: 'Narrow' },
+								{ value: 'wide', label: 'Wide', hint: 'Room for three accounts side by side.' },
+								{ value: 'full', label: 'Full window' }
+							]
+						)}
+					</Field.Set>
+					{#if config.mode !== 'pooled'}
+						<Field.Set>
+							<Field.Legend variant="label">Account order</Field.Legend>
+							{@render radios(
+								'sort',
+								config.accountSort,
+								(v) => (config.accountSort = v as ProfileConfig['accountSort']),
+								[
+									{ value: 'default', label: 'As added' },
+									{ value: 'name', label: 'By name' },
+									{
+										value: 'most_left',
+										label: 'Most left first',
+										hint: 'Going by the lowest of the limits shown.'
+									},
+									{ value: 'least_left', label: 'Least left first' }
+								]
+							)}
+						</Field.Set>
+					{/if}
+					<Field.Set>
+						<Field.Legend variant="label">Reset feeds</Field.Legend>
+						{@render radios(
+							'feeds-pos',
+							config.feedsPosition,
+							(v) => (config.feedsPosition = v as ProfileConfig['feedsPosition']),
+							[
+								{ value: 'bottom', label: 'Below the accounts' },
+								{ value: 'top', label: 'Above the accounts' }
+							]
+						)}
+					</Field.Set>
+					{#if config.mode !== 'accounts'}
+						{@render check(
+							'acct-count',
+							'Show how many accounts are in the pool',
+							config.showAccountCount,
+							(v) => (config.showAccountCount = v)
+						)}
+					{/if}
+				</Field.Group>
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
 			<Card.Header><Card.Title>Resets</Card.Title></Card.Header>
 			<Card.Content>
 				<Field.Group>
@@ -309,7 +434,12 @@
 							[
 								{ value: 'hidden', label: 'Hidden' },
 								{ value: 'count', label: 'Count only' },
-								{ value: 'count_expiry', label: 'Count and expiry dates' }
+								{ value: 'count_expiry', label: 'Count and next expiry' },
+								{
+									value: 'full',
+									label: 'Every reset',
+									hint: 'Each with its expiry and grant date; in a provider total, also which account holds it.'
+								}
 							]
 						)}
 					</Field.Set>

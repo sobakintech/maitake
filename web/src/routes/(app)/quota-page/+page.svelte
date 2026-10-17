@@ -39,6 +39,7 @@
 			const next = draft.snapshot();
 			next.codexResets.intervalMinutes = Number(next.codexResets.intervalMinutes);
 			next.claudeResets.intervalMinutes = Number(next.claudeResets.intervalMinutes);
+			next.quotaPage.refreshSeconds = Number(next.quotaPage.refreshSeconds);
 			const { settings } = await admin.saveSettings(next);
 			draft.value = structuredClone(settings);
 			draft.commit();
@@ -154,6 +155,23 @@
 							/>
 							<Field.Description
 								>Shown at the top of the page. Leave empty for none.</Field.Description
+							>
+						</Field.Field>
+						<Field.Field>
+							<Field.Label for="qp-refresh">Reload every</Field.Label>
+							<div class="flex items-center gap-2">
+								<Input
+									id="qp-refresh"
+									type="number"
+									min={0}
+									max={3600}
+									class="w-24"
+									bind:value={form.quotaPage.refreshSeconds}
+								/>
+								<span class="text-sm text-muted-foreground">seconds</span>
+							</div>
+							<Field.Description
+								>How often an open page fetches fresh numbers. 0 turns it off.</Field.Description
 							>
 						</Field.Field>
 					</Field.Group>

@@ -295,6 +295,8 @@ export type PageSettings = {
 	notice: string;
 	// Shown without a key when access is public.
 	publicProfileId: number;
+	// 0 turns automatic reloading off.
+	refreshSeconds: number;
 };
 
 export type Settings = {
@@ -357,8 +359,16 @@ export type ProfileConfig = {
 	resetFormat: 'both' | 'relative' | 'exact' | 'hidden';
 	showUpdatedAt: boolean;
 	pace: 'warnings' | 'always' | 'hidden';
-	banked: 'count' | 'hidden' | 'count_expiry';
+	levels: { low: number; ok: number };
+	banked: 'count' | 'hidden' | 'count_expiry' | 'full';
 	bankedMode: 'pooled' | 'accounts';
+	layout: QuotaLayout;
+	allowLayoutSwitch: boolean;
+	width: 'narrow' | 'wide' | 'full';
+	accountSort: 'default' | 'name' | 'most_left' | 'least_left';
+	feedsPosition: 'bottom' | 'top';
+	showAccountCount: boolean;
+	allowFlip: boolean;
 	codexResets: ResetsDisplay;
 	claudeResets: ResetsDisplay;
 };
@@ -387,7 +397,19 @@ export type WindowView = {
 	pace?: Pace;
 };
 
-export type BankedView = { available: number; expiries?: string[] };
+export type QuotaLayout = 'cards' | 'rows';
+
+export type BankedCreditView = {
+	title?: string;
+	count: number;
+	grantedAt?: string;
+	expiresAt?: string;
+	requiresLimit?: boolean;
+	// Which account holds it, in a provider total.
+	account?: string;
+};
+
+export type BankedView = { available: number; expiries?: string[]; credits?: BankedCreditView[] };
 
 export type EntryView = {
 	name?: string;
@@ -445,6 +467,13 @@ export type QuotaView = {
 	numberFormat: ProfileConfig['numberFormat'];
 	resetFormat: ProfileConfig['resetFormat'];
 	showUpdatedAt: boolean;
+	layout: QuotaLayout;
+	allowLayoutSwitch: boolean;
+	allowFlip: boolean;
+	width: ProfileConfig['width'];
+	feedsPosition: ProfileConfig['feedsPosition'];
+	showAccountCount: boolean;
+	refreshSeconds: number;
 	providers: ProviderView[];
 	codexResets?: ResetsView;
 	claudeResets?: ResetsView;

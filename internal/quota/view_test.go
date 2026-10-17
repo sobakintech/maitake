@@ -66,3 +66,65 @@ func TestPoolAggregates(t *testing.T) {
 		}
 	}
 }
+
+func TestBankedFullList(t *testing.T) {
+	now := time.Now()
+	soon, later, gone := now.Add(time.Hour), now.Add(48*time.Hour), now.Add(-time.Hour)
+	accts := []AccountInfo{
+		{ID: 1, Provider: "codex", Label: "a@secret.com", Status: "ok", Snapshot: &Snapshot{Banked: &Banked{Available: 3,
+			Credits: []BankedCredit{{ID: "x", Title: "Reset", ExpiresAt: &later, Count: 2}, {ID: "y"}, {ID: "z", ExpiresAt: &gone}}}}},
+		{ID: 2, Provider: "codex", Label: "b@secret.com", Status: "ok", Snapshot: &Snapshot{Banked: &Banked{Available: 1,
+			Credits: []BankedCredit{{ID: "w", ExpiresAt: &soon}}}}},
+	}
+	p := DefaultProfile()
+	p.Banked = "full"
+	b := Build(p, DefaultPageSettings(), accts, Feeds{}, now).Providers[0].Banked
+	if b == nil || b.Available != 4 || len(b.Credits) != 3 {
+		t.Fatalf("unexpected banked view: %+v", b)
+	}
+	if b.Credits[0].Account != "Account 2" || b.Credits[1].Count != 2 || b.Credits[2].ExpiresAt != nil {
+		t.Errorf("credits not sorted by expiry with owners: %+v", b.Credits)
+	}
+	if len(b.Expiries) != 3 {
+		t.Errorf("expected 3 expiries, got %v", b.Expiries)
+	}
+
+	p.BankedMode = "accounts"
+	p.Mode = "accounts"
+	v := Build(p, DefaultPageSettings(), accts, Feeds{}, now)
+	if a := v.Providers[0].Accounts[0].Banked; a == nil || len(a.Credits) != 2 || a.Credits[0].Account != "" {
+		t.Errorf("unexpected per-account banked view: %+v", a)
+	}
+}
+
+func TestAccountSortAndLevels(t *testing.T) {
+	now := time.Now()
+	mk := func(id int64, alias string, used float64) AccountInfo {
+		return AccountInfo{ID: id, Provider: "claude", Alias: alias, Status: "ok",
+			Snapshot: &Snapshot{Windows: []Window{{ID: "5h", Kind: KindSession, UsedPercent: used}}}}
+	}
+	accts := []AccountInfo{mk(1, "b", 10), mk(2, "c", 90), mk(3, "a", 50), {ID: 4, Provider: "claude", Alias: "d", Status: "ok"}}
+	p := DefaultProfile()
+	p.Mode = "accounts"
+	p.AccountNaming = "alias"
+	for sort, want := range map[string]string{"default": "bcad", "name": "abcd", "most_left": "bacd", "least_left": "cabd"} {
+		p.AccountSort = sort
+		got := ""
+		for _, e := range Build(p, DefaultPageSettings(), accts, Feeds{}, now).Providers[0].Accounts {
+			got += e.Name
+		}
+		if got != want {
+			t.Errorf("%s: got %s want %s", sort, got, want)
+		}
+	}
+
+	p.AccountSort = "default"
+	p.Levels.Low, p.Levels.OK = 60, 95
+	got := ""
+	for _, e := range Build(p, DefaultPageSettings(), accts[:3], Feeds{}, now).Providers[0].Accounts {
+		got += e.Windows[0].Level + " "
+	}
+	if got != "ok low low " {
+		t.Errorf("custom levels: got %q", got)
+	}
+}
