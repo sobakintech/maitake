@@ -187,9 +187,7 @@
 			</span>
 			{#if showReset || detail}
 				<p class="text-right">
-					{#if showReset && resetsAt}
-						{resetText(resetsAt)}
-					{/if}{#if detail}{showReset ? ' · ' : ''}{detail}{/if}
+					{[showReset && resetsAt ? resetText(resetsAt) : '', detail].filter(Boolean).join(' · ')}
 				</p>
 			{/if}
 		</div>

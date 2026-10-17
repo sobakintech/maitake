@@ -186,8 +186,9 @@
 					<figure class="rounded-lg border-l-2 bg-muted/30 py-2 pr-3 pl-4">
 						<blockquote class="text-sm">{feed.latest_reset.text}</blockquote>
 						<figcaption class="mt-1 text-xs text-muted-foreground">
-							Latest announcement{#if feed.latest_reset.source.author}
-								by @{feed.latest_reset.source.author}{/if}
+							Latest announcement{feed.latest_reset.source.author
+								? ` by @${feed.latest_reset.source.author}`
+								: ''}
 							· {shortDateTime(feed.latest_reset.announced_at)}
 							{#if feed.latest_reset.source.url}
 								·

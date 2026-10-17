@@ -5,6 +5,7 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig, includeIgnoreFile } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
+import blockEdgeWhitespace from './eslint-rules/block-edge-whitespace.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
@@ -34,8 +35,8 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		files: ['**/*.svelte'],
+		plugins: { local: { rules: { 'block-edge-whitespace': blockEdgeWhitespace } } },
+		rules: { 'local/block-edge-whitespace': 'error' }
 	}
 );
