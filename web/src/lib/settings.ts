@@ -18,6 +18,7 @@ export function coerceSettings(next: Settings): Settings {
 		r.cooldownSeconds = Number(r.cooldownSeconds) || 0;
 	}
 	primerNumbers(pool.primer.schedule);
+	for (const p of Object.values(pool.primer.providers ?? {})) primerNumbers(p);
 	next.usageRetentionDays = Number(next.usageRetentionDays);
 	next.updates.intervalHours = Number(next.updates.intervalHours) || 6;
 	for (const k of [

@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { admin, errorMessage, type Account, type Settings } from '#lib/api.js';
-	import type { Provider } from '#lib/types.js';
+	import type { PrimerPolicy, Provider } from '#lib/types.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import * as Tabs from '#lib/components/ui/tabs/index.js';
 	import PrimerDialog from '#lib/components/primer-dialog.svelte';
 	import PrimerPolicyFields from '#lib/components/primer-policy-fields.svelte';
 	import PingModelSelect from '#lib/components/ping-model-select.svelte';
@@ -16,7 +19,7 @@
 	import UnsavedBar from '#lib/components/unsaved-bar.svelte';
 	import { Draft } from '#lib/draft.svelte.js';
 	import { providerName } from '#lib/format.js';
-	import { defaultModels } from '#lib/primer.js';
+	import { clone, defaultModels } from '#lib/primer.js';
 	import { saveSettings } from '#lib/settings.js';
 	import Settings2Icon from '@lucide/svelte/icons/settings-2';
 	import { untrack } from 'svelte';
@@ -41,6 +44,24 @@
 			.map((p) => ({ provider: p, accounts: data.accounts.filter((a) => a.provider === p) }))
 			.filter((g) => g.accounts.length)
 	);
+
+	// ?schedule=claude opens that provider's tab, e.g. from an account's primer dialog.
+	let tab = $state('shared');
+	$effect(() => {
+		const s = page.url.searchParams.get('schedule');
+		untrack(() => (tab = providers.includes(s as Provider) ? (s as Provider) : 'shared'));
+	});
+
+	// A provider's own schedule is kept while it's switched off and on, until saved.
+	const stashed: Partial<Record<Provider, PrimerPolicy>> = {};
+	function setProviderOwn(p: Provider, on: boolean) {
+		const all = (form.pool.primer.providers ??= {});
+		if (on) all[p] = stashed[p] ?? clone(form.pool.primer.schedule);
+		else {
+			stashed[p] = clone(all[p]);
+			delete all[p];
+		}
+	}
 
 	let dialogOpen = $state(false);
 	let dialogAccount = $state<Account | null>(null);
@@ -98,18 +119,60 @@
 	>
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Shared schedule</Card.Title>
+				<Card.Title>Schedules</Card.Title>
 				<Card.Description>
 					Pick when limits should reset. Each session is started 5 hours earlier with a tiny
-					request.
+					request. A provider, or a single account, can have its own.
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<PrimerPolicyFields
-					bind:policy={form.pool.primer.schedule}
-					serverTimezone={data.serverTimezone}
-					idPrefix="primer"
-				/>
+				<Tabs.Root bind:value={tab}>
+					<Tabs.List>
+						<Tabs.Trigger value="shared">Shared</Tabs.Trigger>
+						{#each providers as p (p)}
+							<Tabs.Trigger value={p}>
+								<ProviderLogo provider={p} />
+								{providerName[p]}
+								{#if form.pool.primer.providers?.[p]}
+									<span class="size-1.5 rounded-full bg-primary" aria-label="Own schedule"></span>
+								{/if}
+							</Tabs.Trigger>
+						{/each}
+					</Tabs.List>
+					<Tabs.Content value="shared" class="pt-4">
+						<PrimerPolicyFields
+							bind:policy={form.pool.primer.schedule}
+							serverTimezone={data.serverTimezone}
+							idPrefix="primer"
+						/>
+					</Tabs.Content>
+					{#each providers as p (p)}
+						{@const own = form.pool.primer.providers?.[p]}
+						<Tabs.Content value={p} class="space-y-4 pt-4">
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="primer-own-{p}">Own schedule for {providerName[p]}</Field.Label>
+									<Field.Description>
+										Off, {providerName[p]} accounts follow the shared schedule. Accounts with their own
+										schedule keep it either way.
+									</Field.Description>
+								</Field.Content>
+								<Switch
+									id="primer-own-{p}"
+									checked={!!own}
+									onCheckedChange={(on) => setProviderOwn(p, on)}
+								/>
+							</Field.Field>
+							{#if own}
+								<PrimerPolicyFields
+									bind:policy={() => own, (v) => ((form.pool.primer.providers ??= {})[p] = v)}
+									serverTimezone={data.serverTimezone}
+									idPrefix="primer-{p}"
+								/>
+							{/if}
+						</Tabs.Content>
+					{/each}
+				</Tabs.Root>
 			</Card.Content>
 		</Card.Root>
 
@@ -134,6 +197,9 @@
 										<span class="text-xs font-normal text-muted-foreground tabular-nums">
 											{on}/{g.accounts.length}
 										</span>
+										{#if data.settings.pool.primer.providers?.[g.provider]}
+											<Badge variant="outline">{providerName[g.provider]} schedule</Badge>
+										{/if}
 									</label>
 									<ul class="ml-6">
 										{#each g.accounts as a (a.id)}

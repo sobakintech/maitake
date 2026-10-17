@@ -87,7 +87,21 @@ func TestPrimerEffective(t *testing.T) {
 	own := DefaultPrimerPolicy()
 	own.Schedules = []PrimerSchedule{{Times: []string{"7:30"}}}
 	o := ps.Effective("claude", AccountPrimer{Enabled: true, Model: "opus", Schedule: &own})
-	if o.Model != "opus" || len(o.Schedules) != 1 || o.Schedules[0].Times[0] != "07:30" {
+	if o.Model != "opus" || len(o.Schedules) != 1 || o.Schedules[0].Times[0] != "07:30" || o.Source != "account" {
 		t.Fatalf("account setup should win, got %+v", o)
+	}
+
+	codex := DefaultPrimerPolicy()
+	codex.Schedules = []PrimerSchedule{{Times: []string{"6:00"}}}
+	ps.Providers = map[string]PrimerPolicy{"codex": codex}
+	ps.Normalize()
+	if c := ps.Effective("codex", AccountPrimer{}); c.Source != "provider" || c.Schedules[0].Times[0] != "06:00" {
+		t.Fatalf("codex accounts should use the codex schedule, got %+v", c)
+	}
+	if c := ps.Effective("claude", AccountPrimer{}); c.Source != "shared" || c.Schedules[0].Times[0] != "09:00" {
+		t.Fatalf("claude accounts should keep the shared schedule, got %+v", c)
+	}
+	if c := ps.Effective("codex", AccountPrimer{Schedule: &own}); c.Source != "account" {
+		t.Fatalf("an account's own schedule should beat its provider's, got %+v", c)
 	}
 }

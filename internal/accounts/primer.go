@@ -23,8 +23,8 @@ type PrimerSchedule struct {
 }
 
 // PrimerPolicy decides when maitake starts an account's session window on its own, by sending
-// a tiny request while the window is idle. The pool settings hold the schedule accounts share;
-// an account can have its own instead.
+// a tiny request while the window is idle. The pool settings hold the schedule accounts share,
+// which a provider or a single account can replace with its own.
 type PrimerPolicy struct {
 	Schedules []PrimerSchedule `json:"schedules"`
 	// DelaySeconds waits this long after the previous session ends before a ping that had to
@@ -45,6 +45,8 @@ type PrimerPolicy struct {
 // PrimerSettings are the primer's pool-wide settings.
 type PrimerSettings struct {
 	Schedule PrimerPolicy `json:"schedule"`
+	// Providers replace Schedule for one provider's accounts.
+	Providers map[string]PrimerPolicy `json:"providers"`
 	// Models are the ping model per provider; missing ones use DefaultPrimerModels. Claude takes
 	// a line name like "haiku" for its newest model; Codex models may carry an effort suffix,
 	// e.g. "gpt-5.6-luna(low)".
@@ -66,6 +68,8 @@ type PrimerEffective struct {
 	PrimerPolicy
 	Enabled bool   `json:"enabled"`
 	Model   string `json:"model"`
+	// Source is whose schedule applies: "account", "provider" or "shared".
+	Source string `json:"source"`
 }
 
 // ValidZone reports whether name is an IANA time zone this build knows.
@@ -110,11 +114,20 @@ func DefaultPrimerPolicy() PrimerPolicy {
 }
 
 func DefaultPrimerSettings() PrimerSettings {
-	return PrimerSettings{Schedule: DefaultPrimerPolicy(), Models: map[string]string{}, Prompt: "hi"}
+	return PrimerSettings{Schedule: DefaultPrimerPolicy(), Providers: map[string]PrimerPolicy{},
+		Models: map[string]string{}, Prompt: "hi"}
 }
 
 func (s *PrimerSettings) Normalize() {
 	s.Schedule.Normalize()
+	providers := map[string]PrimerPolicy{}
+	for k, p := range s.Providers {
+		if k = strings.TrimSpace(k); k != "" {
+			p.Normalize()
+			providers[k] = p
+		}
+	}
+	s.Providers = providers
 	models := map[string]string{}
 	for k, v := range s.Models {
 		if v = strings.TrimSpace(v); v != "" {
@@ -130,9 +143,12 @@ func (s *PrimerSettings) Normalize() {
 
 // Effective is the account's own setup filled in from the pool settings.
 func (s PrimerSettings) Effective(providerID string, a AccountPrimer) PrimerEffective {
-	p := s.Schedule
+	p, source := s.Schedule, "shared"
+	if own, ok := s.Providers[providerID]; ok {
+		p, source = own, "provider"
+	}
 	if a.Schedule != nil {
-		p = *a.Schedule
+		p, source = *a.Schedule, "account"
 		p.Normalize()
 	}
 	model := strings.TrimSpace(a.Model)
@@ -142,7 +158,7 @@ func (s PrimerSettings) Effective(providerID string, a AccountPrimer) PrimerEffe
 	if model == "" {
 		model = DefaultPrimerModels[providerID]
 	}
-	return PrimerEffective{PrimerPolicy: p, Enabled: a.Enabled, Model: model}
+	return PrimerEffective{PrimerPolicy: p, Enabled: a.Enabled, Model: model, Source: source}
 }
 
 func clampInt(v, lo, hi int) int { return min(max(v, lo), hi) }

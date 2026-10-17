@@ -141,10 +141,17 @@ export type AccountPrimer = {
 	schedule?: PrimerPolicy;
 };
 
-export type PrimerEffective = PrimerPolicy & { enabled: boolean; model: string };
+// source is whose schedule applies: the account's own, its provider's, or the shared one.
+export type PrimerEffective = PrimerPolicy & {
+	enabled: boolean;
+	model: string;
+	source: 'account' | 'provider' | 'shared';
+};
 
 export type PrimerSettings = {
 	schedule: PrimerPolicy;
+	// Replace the shared schedule for one provider's accounts.
+	providers: Partial<Record<Provider, PrimerPolicy>>;
 	// Ping model per provider; missing ones use the built-in default.
 	models: Partial<Record<Provider, string>>;
 	prompt: string;

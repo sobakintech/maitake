@@ -12,7 +12,7 @@
 	import PingModelSelect from '#lib/components/ping-model-select.svelte';
 	import PrivateText from '#lib/components/private-text.svelte';
 	import ProviderLogo from '#lib/components/provider-logo.svelte';
-	import { shortDateTime } from '#lib/format.js';
+	import { providerName, shortDateTime } from '#lib/format.js';
 	import {
 		clone,
 		defaultModels,
@@ -26,7 +26,7 @@
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
-	// One account's session primer: on/off, shared or own schedules, and ping model.
+	// One account's session primer: on/off, inherited or own schedules, and ping model.
 	let {
 		account,
 		open = $bindable(false),
@@ -49,6 +49,13 @@
 	let runs = $state<PrimerRun[]>([]);
 	let busy = $state(false);
 
+	// What the account follows without its own schedule: its provider's, else the shared one.
+	const providerOwn = $derived(account ? shared.providers?.[account.provider] : undefined);
+	const inherited = $derived(providerOwn ?? shared.schedule);
+	const inheritedName = $derived(
+		account && providerOwn ? `${providerName[account.provider]} schedule` : 'Shared'
+	);
+
 	// Reset the form when the dialog opens, not when the page's data refreshes behind it.
 	$effect(() => {
 		if (!open || !account) return;
@@ -56,7 +63,7 @@
 		untrack(() => {
 			enabled = a.primer.enabled;
 			mode = a.primer.schedule ? 'own' : 'shared';
-			own = clone(a.primer.schedule ?? shared.schedule);
+			own = clone(a.primer.schedule ?? inherited);
 			model = a.primer.model ?? '';
 			runs = [];
 		});
@@ -66,7 +73,7 @@
 			.catch(() => {});
 	});
 
-	const sharedLines = $derived(describePolicy(shared.schedule));
+	const sharedLines = $derived(describePolicy(inherited));
 	const sharedModel = $derived.by(() => {
 		if (!account) return '';
 		const m = shared.models[account.provider] || defaultModels[account.provider];
@@ -105,7 +112,7 @@
 
 	function editShared() {
 		open = false;
-		goto('/primer');
+		goto(providerOwn && account ? `/primer?schedule=${account.provider}` : '/primer');
 	}
 </script>
 
@@ -131,8 +138,8 @@
 						<div class="flex items-center justify-between gap-2">
 							<Field.Legend class="mb-0">Schedule</Field.Legend>
 							{#if mode === 'own' && sharedLines.length}
-								<Button size="xs" variant="ghost" onclick={() => (own = clone(shared.schedule))}>
-									Copy from shared
+								<Button size="xs" variant="ghost" onclick={() => (own = clone(inherited))}>
+									Copy from {providerOwn && account ? providerName[account.provider] : 'shared'}
 								</Button>
 							{/if}
 						</div>
@@ -143,7 +150,7 @@
 							value={mode}
 							onValueChange={(v) => v && (mode = v as 'shared' | 'own')}
 						>
-							<ToggleGroup.Item value="shared" class={segment}>Shared</ToggleGroup.Item>
+							<ToggleGroup.Item value="shared" class={segment}>{inheritedName}</ToggleGroup.Item>
 							<ToggleGroup.Item value="own" class={segment}>Only this account</ToggleGroup.Item>
 						</ToggleGroup.Root>
 						{#if mode === 'shared'}
