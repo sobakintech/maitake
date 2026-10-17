@@ -11,7 +11,7 @@
 
 A multi-user proxy that serves AI subscriptions (ChatGPT, Claude and more) as Claude Messages, OpenAI Chat Completions and OpenAI Responses APIs, with a built-in admin dashboard. Inspired by [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI).
 
-![The maitake admin dashboard overview, with request stats, requests per hour and per-account limits](docs/overview.jpg)
+![The maitake admin dashboard overview, with account pool status, traffic stats and requests per hour](docs/overview.jpg)
 
 - Per-user API keys with allowed models, rate limits and expiry
 - Account pool with priorities, automatic failover, cooldowns and token refresh
