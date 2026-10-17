@@ -145,3 +145,11 @@ internal/server/    admin API, auth, SPA serving
 internal/store/     SQLite storage and migrations
 web/                SvelteKit dashboard (SPA, embedded into the binary)
 ```
+
+## Contributing
+
+Bug reports and feature requests are welcome as issues. Pull requests aren't open right now. If you have a fix, describe it in an issue and I'll take care of it.
+
+## License
+
+[AGPL-3.0](LICENSE). If you run a modified version of maitake as a service, you have to publish your changes.
