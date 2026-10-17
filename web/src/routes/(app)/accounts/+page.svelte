@@ -33,7 +33,7 @@
 	import BankedResets from './banked-resets.svelte';
 	import SubscriptionLine from './subscription-line.svelte';
 	import PrimerBox from './primer-box.svelte';
-	import PrimerDialog from './primer-dialog.svelte';
+	import PrimerDialog from '#lib/components/primer-dialog.svelte';
 	import { primeNow } from '#lib/prime-now.js';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';

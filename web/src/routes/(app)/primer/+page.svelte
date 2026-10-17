@@ -8,6 +8,7 @@
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
+	import PrimerDialog from '#lib/components/primer-dialog.svelte';
 	import PrimerPolicyFields from '#lib/components/primer-policy-fields.svelte';
 	import PingModelSelect from '#lib/components/ping-model-select.svelte';
 	import PrivateText from '#lib/components/private-text.svelte';
@@ -17,6 +18,7 @@
 	import { providerName } from '#lib/format.js';
 	import { defaultModels } from '#lib/primer.js';
 	import { saveSettings } from '#lib/settings.js';
+	import Settings2Icon from '@lucide/svelte/icons/settings-2';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import type { PageProps } from './$types';
@@ -39,6 +41,13 @@
 			.map((p) => ({ provider: p, accounts: data.accounts.filter((a) => a.provider === p) }))
 			.filter((g) => g.accounts.length)
 	);
+
+	let dialogOpen = $state(false);
+	let dialogAccount = $state<Account | null>(null);
+	function openAccount(a: Account) {
+		dialogAccount = a;
+		dialogOpen = true;
+	}
 
 	function setGroup(accounts: Account[], on: boolean) {
 		for (const a of accounts) enabled.value[a.id] = on;
@@ -128,8 +137,8 @@
 									</label>
 									<ul class="ml-6">
 										{#each g.accounts as a (a.id)}
-											<li>
-												<label class="flex items-center gap-2 py-1.5 text-sm">
+											<li class="flex items-center gap-2">
+												<label class="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm">
 													<Checkbox bind:checked={enabled.value[a.id]} />
 													<PrivateText class="truncate">{a.label}</PrivateText>
 													{#if a.primer.schedule}
@@ -139,6 +148,15 @@
 														<span class="text-xs text-muted-foreground">Disabled</span>
 													{/if}
 												</label>
+												<Button
+													size="icon-xs"
+													variant="ghost"
+													class="text-muted-foreground"
+													aria-label="Session primer settings for {a.label}"
+													onclick={() => openAccount(a)}
+												>
+													<Settings2Icon />
+												</Button>
 											</li>
 										{/each}
 									</ul>
@@ -196,3 +214,11 @@
 
 	<UnsavedBar dirty={draft.dirty || enabled.dirty} {saving} onSave={save} onReset={reset} />
 </div>
+
+<PrimerDialog
+	account={dialogAccount}
+	bind:open={dialogOpen}
+	shared={data.settings.pool.primer}
+	catalog={data.models}
+	serverTimezone={data.serverTimezone}
+/>
