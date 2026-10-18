@@ -207,10 +207,19 @@ func poolPace(useds []float64, paces []*Pace) *Pace {
 }
 
 // bankedView sums the banked resets of some accounts. owners names each bank's account for the
-// full list; it's nil for a single account.
+// full list; it's dropped when only one account has a bank.
 func (p *Profile) bankedView(banks []*Banked, owners []string, now time.Time) *BankedView {
 	if p.Banked == "hidden" {
 		return nil
+	}
+	holders := 0
+	for _, b := range banks {
+		if b != nil {
+			holders++
+		}
+	}
+	if holders < 2 {
+		owners = nil
 	}
 	var out BankedView
 	seen := false

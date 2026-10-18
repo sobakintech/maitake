@@ -89,6 +89,11 @@ func TestBankedFullList(t *testing.T) {
 		t.Errorf("expected 3 expiries, got %v", b.Expiries)
 	}
 
+	solo := Build(p, DefaultPageSettings(), accts[1:], Feeds{}, now).Providers[0].Banked
+	if solo == nil || len(solo.Credits) != 1 || solo.Credits[0].Account != "" {
+		t.Errorf("a lone account's resets shouldn't name it: %+v", solo)
+	}
+
 	p.BankedMode = "accounts"
 	p.Mode = "accounts"
 	v := Build(p, DefaultPageSettings(), accts, Feeds{}, now)
