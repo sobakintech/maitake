@@ -146,6 +146,12 @@ internal/store/     SQLite storage and migrations
 web/                SvelteKit dashboard (SPA, embedded into the binary)
 ```
 
+## Disclaimer
+
+maitake is an independent project, not affiliated with or endorsed by Anthropic or OpenAI. It uses the same endpoints as the official Claude Code and Codex clients, some of them undocumented, so things can change or break without notice.
+
+Using a subscription through maitake is subject to that provider's terms. Both Anthropic and OpenAI restrict sharing an account between several people, and an account that breaks their terms can be limited or suspended. Whether your setup is allowed is up to you to check. You use maitake at your own risk.
+
 ## Contributing
 
 Bug reports and feature requests are welcome as issues. Pull requests aren't open right now. If you have a fix, describe it in an issue and I'll take care of it.
