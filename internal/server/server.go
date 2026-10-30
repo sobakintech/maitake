@@ -127,6 +127,7 @@ func New(d Deps) http.Handler {
 			r.Get("/primer/runs", s.primerRuns)
 
 			r.Get("/usage", s.usage)
+			r.Get("/capacity", s.capacity)
 			r.Get("/audit", s.listAudit)
 			r.Delete("/audit", s.clearAudit)
 			r.Get("/audit/{id}", s.getAudit)

@@ -312,6 +312,66 @@ export type Settings = {
 	updates: { enabled: boolean; intervalHours: number };
 };
 
+export type CapacityWindow = 'weekly' | 'session';
+export type CapacityUsage = 'recent' | 'average';
+export type CapacityBurn = '1h' | '3h' | '6h';
+
+export type CapacityPoint = { t: string; v: number };
+
+export type CapacityReset = {
+	t: string;
+	// Percent of the pool's capacity that comes back.
+	gain: number;
+	projected: boolean;
+	accounts: number[];
+};
+
+export type CapacityAccount = {
+	id: number;
+	label: string;
+	alias: string;
+	plan: string;
+	status: string;
+	weight: number;
+	// The account's own window in percent; null when it reports no such window.
+	remaining: number | null;
+	resetsAt?: string;
+	rate: number;
+	emptyAt?: string;
+	recorded: CapacityPoint[];
+	projected: CapacityPoint[];
+};
+
+export type CapacityProvider = {
+	id: Provider;
+	name: string;
+	capacity: number;
+	accounts: CapacityAccount[];
+	remaining: number | null;
+	recorded: CapacityPoint[];
+	projected: CapacityPoint[];
+	resets: CapacityReset[];
+	stats: {
+		burnRate: number;
+		burnSource: 'recent' | 'average' | 'mixed';
+		poolEmptyAt: string | null;
+		firstEmpty: { accountId: number; at: string } | null;
+		emptyNow: number;
+		nextReset: CapacityReset | null;
+		horizon: string;
+	};
+};
+
+export type CapacityResponse = {
+	window: CapacityWindow;
+	usage: CapacityUsage;
+	burn: number;
+	now: string;
+	from: string;
+	to: string;
+	providers: CapacityProvider[];
+};
+
 export type FeedSettings = { enabled: boolean; intervalMinutes: number };
 
 export type PoolSettings = {

@@ -10,6 +10,10 @@ import type {
 	RoutingSettings,
 	Account,
 	AccountPatch,
+	CapacityBurn,
+	CapacityResponse,
+	CapacityUsage,
+	CapacityWindow,
 	ResetsSnapshot,
 	DisplayProfile,
 	ProfileConfig,
@@ -279,6 +283,19 @@ export const admin = {
 	deleteProfile: (id: number) => request<void>('DELETE', `/admin/profiles/${id}`),
 	previewProfile: (config: ProfileConfig) =>
 		request<{ view: QuotaView }>('POST', '/admin/profiles/preview', { config }),
+	capacity: (
+		p: { window: CapacityWindow; burn: CapacityBurn; usage: CapacityUsage; from: Date; to: Date },
+		f?: typeof fetch
+	) => {
+		const q = new URLSearchParams({
+			window: p.window,
+			burn: p.burn,
+			usage: p.usage,
+			from: p.from.toISOString(),
+			to: p.to.toISOString()
+		});
+		return request<CapacityResponse>('GET', `/admin/capacity?${q}`, undefined, f);
+	},
 	codexResets: (f?: typeof fetch) =>
 		request<{ codexResets: ResetsSnapshot }>('GET', '/admin/codex-resets', undefined, f),
 	refreshCodexResets: () => request<void>('POST', '/admin/codex-resets/refresh'),

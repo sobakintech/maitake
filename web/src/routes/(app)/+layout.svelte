@@ -17,6 +17,7 @@
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import BoxesIcon from '@lucide/svelte/icons/boxes';
 	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
+	import ChartLineIcon from '@lucide/svelte/icons/chart-line';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import CircleArrowUpIcon from '@lucide/svelte/icons/circle-arrow-up';
 	import AlarmClockIcon from '@lucide/svelte/icons/alarm-clock';
@@ -40,6 +41,7 @@
 		{
 			label: 'Activity',
 			items: [
+				{ href: '/capacity', label: 'Capacity', icon: ChartLineIcon },
 				{ href: '/timeline', label: 'Timeline', icon: CalendarClockIcon },
 				{ href: '/audit', label: 'Audit log', icon: ScrollTextIcon }
 			]
