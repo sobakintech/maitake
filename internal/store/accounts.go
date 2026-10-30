@@ -148,7 +148,12 @@ func (s *Store) UpdateAccount(ctx context.Context, id int64, p AccountPatch) (*A
 }
 
 func (s *Store) DeleteAccount(ctx context.Context, id int64) error {
-	return affected(s.db.ExecContext(ctx, "DELETE FROM accounts WHERE id = ?", id))
+	if err := affected(s.db.ExecContext(ctx, "DELETE FROM accounts WHERE id = ?", id)); err != nil {
+		return err
+	}
+	// Account ids can be reused, so a new account mustn't inherit this one's history.
+	_, err := s.db.ExecContext(ctx, "DELETE FROM quota_samples WHERE account_id = ?", id)
+	return err
 }
 
 func (s *Store) SaveAccountCredentials(ctx context.Context, id int64, creds, plan string) error {

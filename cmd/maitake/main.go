@@ -156,6 +156,9 @@ func run(configPath string) error {
 				slog.Error("prune usage", "err", err)
 			}
 		}
+		if err := st.PruneQuotaSamples(ctx, time.Now().AddDate(0, 0, -30)); err != nil {
+			slog.Error("prune quota samples", "err", err)
+		}
 		if err := st.PrunePrimerRuns(ctx, time.Now().AddDate(0, 0, -30)); err != nil {
 			slog.Error("prune primer runs", "err", err)
 		}

@@ -95,6 +95,7 @@ type entry struct {
 	lastRedeem time.Time
 	redeems    []time.Time // automatic uses, for the daily cap
 	primer     primerState
+	samples    map[string]sampleMark // last recorded quota sample per window
 	refreshMu  sync.Mutex
 }
 
@@ -638,6 +639,7 @@ func (m *Manager) ObserveQuota(ctx context.Context, id int64, windows []quota.Wi
 	if persist {
 		_ = m.store.SaveAccountQuota(ctx, id, snap.Encode(), now)
 	}
+	m.recordSamples(ctx, e, snap, now)
 }
 
 // RefreshQuota polls the provider's usage endpoint for one account.
@@ -672,6 +674,9 @@ func (m *Manager) RefreshQuota(ctx context.Context, id int64) error {
 	encoded := e.snap.Encode()
 	plan := e.snap.Plan
 	m.mu.Unlock()
+	if err == nil {
+		m.recordSamples(ctx, e, snap, now)
+	}
 	if plan != "" && plan != e.acct.Plan {
 		_ = m.store.SaveAccountCredentials(ctx, id, creds.Encode(), plan)
 		m.mu.Lock()
