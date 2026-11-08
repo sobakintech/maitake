@@ -117,7 +117,7 @@ func DisplayName(id string) string {
 	}
 	for _, p := range parts {
 		switch {
-		case len(p) == 8 && isDigits(p): // date stamp
+		case p == "", len(p) == 8 && isDigits(p): // stray dash or date stamp
 			continue
 		case isDigits(p) || (len(p) > 0 && unicode.IsDigit(rune(p[0])) && strings.Contains(p, ".")):
 			version = append(version, p)

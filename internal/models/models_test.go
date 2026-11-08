@@ -10,6 +10,7 @@ func TestDisplayName(t *testing.T) {
 		"gpt-5.5":                    "GPT-5.5",
 		"gpt-6.1-sol":                "GPT-6.1 Sol",
 		"codex-auto-review":          "Codex Auto Review",
+		"claude--opus":               "Claude Opus",
 	} {
 		if got := DisplayName(id); got != want {
 			t.Errorf("DisplayName(%q) = %q, want %q", id, got, want)
