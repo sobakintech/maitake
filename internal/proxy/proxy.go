@@ -166,6 +166,24 @@ type call struct {
 	audit   *audit.Capture // nil unless this request is being recorded
 }
 
+// reportsServedModel is true when the client asked for an alias, so Maitake chose the model.
+// A mapping rule that targets an alias doesn't count: rules stay invisible to the client.
+func (c *call) reportsServedModel() bool {
+	return c.route.Alias != "" && c.route.Mapped == ""
+}
+
+// responseModel is the name translated responses report: the client's own string, unless it
+// asked for an alias. OpenRouter-style chat clients expect lab-prefixed names.
+func (c *call) responseModel() string {
+	switch {
+	case !c.reportsServedModel():
+		return c.model
+	case c.clientFormat == routing.FormatOpenRouter:
+		return c.route.Model.Canonical
+	}
+	return c.baseModel
+}
+
 type callKind int
 
 const (

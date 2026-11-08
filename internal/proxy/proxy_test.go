@@ -51,6 +51,8 @@ type fakeUpstream struct {
 	codexTokens []string
 	lists       map[string]string // model list per token
 	refuse      string            // model the Codex backend says doesn't exist
+	// claudeServes is the model Claude reports answering with, when it isn't the one asked for.
+	claudeServes string
 }
 
 func (f *fakeUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -133,8 +135,12 @@ func (f *fakeUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.mu.Unlock()
 		w.Header().Set("anthropic-ratelimit-unified-5h-utilization", "0.25")
 		w.Header().Set("anthropic-ratelimit-unified-5h-status", "allowed")
+		model := gjson.GetBytes(body, "model").String()
+		if f.claudeServes != "" {
+			model = f.claudeServes
+		}
 		sse(w,
-			`{"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-opus-5","content":[],"usage":{"input_tokens":10,"output_tokens":1}}}`,
+			`{"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"`+model+`","content":[],"usage":{"input_tokens":10,"output_tokens":1}}}`,
 			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
 			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}`,
 			`{"type":"content_block_stop","index":0}`,
@@ -176,12 +182,13 @@ func (f *fakeUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				`{"type":"response.completed","response":{"id":"resp_2","status":"completed","usage":{"input_tokens":20,"output_tokens":7}}}`)
 			return
 		}
+		model := gjson.GetBytes(body, "model").String()
 		sse(w,
-			`{"type":"response.created","response":{"id":"resp_1"}}`,
+			`{"type":"response.created","response":{"id":"resp_1","model":"`+model+`"}}`,
 			`{"type":"response.output_item.added","output_index":0,"item":{"type":"message","id":"m1","role":"assistant","content":[]}}`,
 			`{"type":"response.output_text.delta","output_index":0,"item_id":"m1","delta":"Hi"}`,
 			`{"type":"response.output_item.done","output_index":0,"item":{"type":"message","id":"m1","role":"assistant","content":[{"type":"output_text","text":"Hi"}]}}`,
-			`{"type":"response.completed","response":{"id":"resp_1","status":"completed","usage":{"input_tokens":12,"output_tokens":3,"input_tokens_details":{"cached_tokens":4}}}}`)
+			`{"type":"response.completed","response":{"id":"resp_1","model":"`+model+`","status":"completed","usage":{"input_tokens":12,"output_tokens":3,"input_tokens_details":{"cached_tokens":4}}}}`)
 	default:
 		w.WriteHeader(404)
 	}

@@ -419,16 +419,17 @@ bootstrapLoop:
 		}
 	}
 
+	model := c.responseModel()
 	var conv translate.Converter
 	switch {
 	case c.provider == "claude" && c.format == formatChat:
-		conv = translate.NewClaudeToChatStream(c.model, c.chat, c.names)
+		conv = translate.NewClaudeToChatStream(model, c.chat, c.names)
 	case c.provider == "claude" && c.format == formatResponses:
-		conv = translate.NewClaudeToResponsesStream(c.model, c.names)
+		conv = translate.NewClaudeToResponsesStream(model, c.names)
 	case c.provider == "codex" && c.format == formatChat:
-		conv = translate.NewResponsesToChatStream(c.model, c.chat, c.names)
+		conv = translate.NewResponsesToChatStream(model, c.chat, c.names)
 	case c.provider == "codex" && c.format == formatClaude:
-		conv = translate.NewResponsesToClaudeStream(c.model, c.names)
+		conv = translate.NewResponsesToClaudeStream(model, c.names)
 	}
 
 	if !c.stream {
@@ -460,9 +461,9 @@ bootstrapLoop:
 			out = claudeAcc.Message()
 			switch c.format {
 			case formatChat:
-				out = translate.ClaudeMessageToChat(out, c.model, c.chat, c.names)
+				out = translate.ClaudeMessageToChat(out, model, c.chat, c.names)
 			case formatResponses:
-				out = translate.ClaudeMessageToResponse(out, c.model, c.names)
+				out = translate.ClaudeMessageToResponse(out, model, c.names)
 			}
 		} else {
 			upstreamErr = respAcc.Err
@@ -476,9 +477,9 @@ bootstrapLoop:
 			}
 			switch c.format {
 			case formatChat:
-				out = translate.ResponseToChat(out, c.model, c.names, c.chat)
+				out = translate.ResponseToChat(out, model, c.names, c.chat)
 			case formatClaude:
-				out = translate.ResponseToClaudeMessage(out, c.model, c.names)
+				out = translate.ResponseToClaudeMessage(out, model, c.names)
 			}
 		}
 		if upstreamErr != nil {
@@ -487,7 +488,7 @@ bootstrapLoop:
 			return relayResult{status: e.status, usage: usageOf(), msg: e.message}
 		}
 		recordSignatures()
-		if c.format == formatClaude && c.provider == "claude" {
+		if c.format == formatClaude && c.provider == "claude" && !c.reportsServedModel() {
 			out, _ = sjson.SetBytes(out, "model", c.model)
 		}
 		w.Header().Set("Content-Type", "application/json")
