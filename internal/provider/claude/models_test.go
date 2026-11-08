@@ -32,4 +32,14 @@ func TestResolveModel(t *testing.T) {
 	if calls != 1 {
 		t.Errorf("model list fetched %d times, want 1", calls)
 	}
+	list, err := p.ListModels(ctx, c)
+	if err != nil || len(list) != 4 {
+		t.Fatalf("ListModels = %v, %v", list, err)
+	}
+	if list[1].ID != "claude-haiku-5-5" || list[1].Preview || list[1].Created.IsZero() {
+		t.Errorf("active model = %+v", list[1])
+	}
+	if list[2].ID != "claude-haiku-6" || !list[2].Preview {
+		t.Errorf("preview model = %+v", list[2])
+	}
 }

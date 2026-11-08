@@ -144,10 +144,7 @@ func (h *Handler) codexClientModels(w http.ResponseWriter, r *http.Request, owne
 	rs := h.routing()
 	out := []map[string]any{}
 	priority := 1000
-	for _, m := range rs.Catalog() {
-		if !available[m.Provider] || rs.Models[m.Canonical].Disabled || !models.Allowed(owner.Key.AllowedModels, m) {
-			continue
-		}
+	entryFor := func(m models.Model) map[string]any {
 		var entry map[string]any
 		if t, ok := templates[m.ID]; ok {
 			entry = cloneTemplate(t)
@@ -172,6 +169,25 @@ func (h *Handler) codexClientModels(w http.ResponseWriter, r *http.Request, owne
 		entry["slug"] = m.ID
 		entry["display_name"] = m.Name
 		entry["visibility"] = "list"
+		return entry
+	}
+	for _, m := range rs.Catalog() {
+		if available[m.Provider] && !rs.Models[m.Canonical].Disabled && models.Allowed(owner.Key.AllowedModels, m) {
+			out = append(out, entryFor(m))
+		}
+	}
+	for _, a := range h.listedAliases(rs, owner) {
+		if !available[a.Model.Provider] {
+			continue
+		}
+		entry := entryFor(a.Target)
+		for _, k := range []string{"upgrade", "availability_nux"} {
+			delete(entry, k)
+		}
+		priority++
+		entry["priority"] = priority
+		entry["slug"], entry["display_name"] = a.Model.ID, a.Model.Name
+		entry["description"] = "Currently " + a.Target.Name
 		out = append(out, entry)
 	}
 	w.Header().Set("Content-Type", "application/json")

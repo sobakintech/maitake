@@ -2,11 +2,13 @@ package codex
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 
+	"github.com/sobakintech/maitake/internal/models"
 	"github.com/sobakintech/maitake/internal/provider"
 )
 
@@ -31,6 +33,34 @@ func (p *Provider) ClientModels(ctx context.Context, c provider.Credentials, cli
 		return nil, fmt.Errorf("codex models: %d", resp.StatusCode)
 	}
 	return body, nil
+}
+
+// listClientVersion is deliberately high: ChatGPT leaves out models whose minimal_client_version
+// is above the one asked about, even though requests for them work from any version.
+const listClientVersion = "99.0.0"
+
+// ListModels reports the models this account can use. Anything not "list" visibility counts as a preview.
+func (p *Provider) ListModels(ctx context.Context, c provider.Credentials) ([]models.Listed, error) {
+	data, err := p.ClientModels(ctx, c, listClientVersion)
+	if err != nil {
+		return nil, err
+	}
+	var payload struct {
+		Models []struct {
+			Slug       string `json:"slug"`
+			Visibility string `json:"visibility"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, fmt.Errorf("codex models: %w", err)
+	}
+	out := make([]models.Listed, 0, len(payload.Models))
+	for _, m := range payload.Models {
+		if m.Slug != "" {
+			out = append(out, models.Listed{ID: m.Slug, Preview: m.Visibility != "" && m.Visibility != "list"})
+		}
+	}
+	return out, nil
 }
 
 // SendSearch forwards a Codex CLI /alpha/search request.

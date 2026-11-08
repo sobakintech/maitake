@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sobakintech/maitake/internal/models"
 	"github.com/sobakintech/maitake/internal/provider"
 	"github.com/sobakintech/maitake/internal/quota"
 	"github.com/sobakintech/maitake/internal/store"
@@ -97,6 +98,10 @@ type entry struct {
 	primer     primerState
 	samples    map[string]sampleMark // last recorded quota sample per window
 	refreshMu  sync.Mutex
+	// The models upstream says this account can use; modelsAt is zero until it has answered.
+	listed      []models.Listed
+	modelsAt    time.Time
+	modelsTried time.Time
 }
 
 type Manager struct {

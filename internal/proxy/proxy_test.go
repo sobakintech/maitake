@@ -48,6 +48,9 @@ type fakeUpstream struct {
 	compactBody []byte
 	claudeCalls map[string]int
 	claudeSeen  [][]byte
+	codexTokens []string
+	lists       map[string]string // model list per token
+	refuse      string            // model the Codex backend says doesn't exist
 }
 
 func (f *fakeUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +59,14 @@ func (f *fakeUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.URL.Path == "/v1/messages/count_tokens":
 		w.Write([]byte(`{"input_tokens":42}`))
+	case r.URL.Path == "/v1/models":
+		if list := f.lists[token]; list != "" {
+			w.Write([]byte(list))
+			return
+		}
+		w.WriteHeader(404)
+	case r.URL.Path == "/codex/models" && f.lists[token] != "":
+		w.Write([]byte(f.lists[token]))
 	case r.URL.Path == "/codex/models":
 		w.Write([]byte(`{"models":[{"slug":"gpt-5.5","display_name":"GPT-5.5","priority":13,"base_instructions":"You are Codex, based on GPT-5.","upgrade":{"model":"x"}}]}`))
 	case r.URL.Path == "/codex/alpha/search":
@@ -139,7 +150,13 @@ func (f *fakeUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.codexBody = body
 		f.codexBodies = append(f.codexBodies, body)
+		f.codexTokens = append(f.codexTokens, token)
 		f.mu.Unlock()
+		if model := gjson.GetBytes(body, "model").String(); f.refuse != "" && model == f.refuse {
+			w.WriteHeader(400)
+			w.Write([]byte(`{"detail":"nope","error":{"type":"invalid_request_error","code":"model_not_found","message":"The '` + model + `' model is not supported when using Codex with a ChatGPT account."}}`))
+			return
+		}
 		if gjson.GetBytes(body, "tool_choice.type").String() == "image_generation" {
 			sse(w,
 				`{"type":"response.created","response":{"id":"resp_img"}}`,

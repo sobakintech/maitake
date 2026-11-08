@@ -55,6 +55,7 @@ type Settings struct {
 	Models   map[string]ModelOverride `json:"models"` // keyed by canonical name
 	Custom   []CustomModel            `json:"custom"`
 	Mappings []Rule                   `json:"mappings"`
+	Aliases  AliasSettings            `json:"aliases"`
 	// PayloadRules edit upstream request bodies after translation.
 	PayloadRules []PayloadRule `json:"payloadRules"`
 	Images       ImageSettings `json:"images"`
@@ -107,13 +108,15 @@ type Rule struct {
 type KeyRules struct {
 	Rules        []Rule `json:"rules"`
 	IgnoreGlobal bool   `json:"ignoreGlobal"`
+	// IgnoreAliases makes names like "sol" unknown for this key.
+	IgnoreAliases bool `json:"ignoreAliases"`
 }
 
 func DefaultSettings() Settings {
 	return Settings{Strategy: StrategyRoundRobin, Affinity: "session", StickyMinutes: 30, ModelList: "bare",
 		UnknownModels: true, ReasoningField: "both", Models: map[string]ModelOverride{},
-		ProviderStrategy: map[string]string{}, Custom: []CustomModel{}, Mappings: []Rule{}, PayloadRules: []PayloadRule{},
-		Images: ImageSettings{Enabled: true, Model: "gpt-5.4-mini", ToolModel: "gpt-image-2"}}
+		ProviderStrategy: map[string]string{}, Custom: []CustomModel{}, Mappings: []Rule{}, Aliases: DefaultAliases(),
+		PayloadRules: []PayloadRule{}, Images: ImageSettings{Enabled: true, Model: "gpt-5.4-mini", ToolModel: "gpt-image-2"}}
 }
 
 func validStrategy(s string) bool { return slices.Contains(strategies, s) }
@@ -170,6 +173,7 @@ func (s *Settings) Normalize() {
 	if s.Mappings == nil {
 		s.Mappings = []Rule{}
 	}
+	s.Aliases.normalize()
 }
 
 // Catalog is every model: built-ins, then custom ones, with display-name overrides applied.
@@ -225,12 +229,18 @@ type Request struct {
 	Allowed  []string
 	// Providers optionally restricts which providers may serve it (OpenRouter's provider.only).
 	Providers []string
+	// Inventory reports the models accounts can use, for aliases. Nil means only the catalog is known.
+	Inventory func() models.Inventory
+	// Usable reports whether any of the accounts (or, when empty, any of the provider's) could
+	// take a request for the model right now. Nil means assume so.
+	Usable func(provider, model string, accounts []int64) bool
 }
 
 type Route struct {
 	Requested string       `json:"requested"`
 	Mapped    string       `json:"mapped,omitempty"` // set when a rule rewrote the name
 	Rule      string       `json:"rule,omitempty"`   // "key" or "global"
+	Alias     string       `json:"alias,omitempty"`  // set when the name was a line like "sol"
 	Model     models.Model `json:"model"`
 	Effort    string       `json:"effort,omitempty"`
 	// DefaultEffort applies only when the request itself doesn't ask for a reasoning level.
@@ -325,9 +335,37 @@ func (s Settings) Resolve(req Request) (*Route, error) {
 	if !ok && prefix != "" {
 		m, ok = s.lookup(name)
 	}
+
+	// A real model with the same name always wins over an alias.
+	var alias Alias
+	isAlias, picked := false, false
+	var pickedAccounts []int64
+	if !ok && !req.KeyRules.IgnoreAliases {
+		alias, isAlias = s.Aliases.find(bare)
+	}
+	if isAlias {
+		route.Alias = alias.Name
+		if alias.Pin != "" {
+			pin, _ := models.SplitEffort(alias.Pin)
+			var pinPrefix string
+			bare, pinPrefix = stripPrefix(pin)
+			if pinPrefix != "" {
+				prefix = pinPrefix
+			}
+			name = pin
+			m, ok = s.lookup(bare)
+		} else {
+			c, err := s.pickAlias(alias, prefix, req)
+			if err != nil {
+				return route, err
+			}
+			m, pickedAccounts, route.Catalog, picked = c.model, c.accounts, c.inCatalog, true
+		}
+	}
+
 	if ok {
 		route.Catalog = true
-	} else {
+	} else if !picked {
 		provider := models.GuessProvider(bare)
 		if p, isProvider := models.LabForProvider[prefix]; isProvider && p != "" {
 			provider = prefix
@@ -350,7 +388,11 @@ func (s Settings) Resolve(req Request) (*Route, error) {
 	if o.Disabled {
 		return route, fmt.Errorf("%w: %s", ErrModelDisabled, m.ID)
 	}
-	if !models.Allowed(req.Allowed, m) {
+	allowed := models.Allowed(req.Allowed, m)
+	if isAlias {
+		allowed = aliasAllowed(req.Allowed, alias, m)
+	}
+	if !allowed {
 		return route, fmt.Errorf("%w: %s", ErrNotAllowed, m.ID)
 	}
 	if len(req.Providers) > 0 && !providerAllowed(req.Providers, m) {
@@ -358,7 +400,13 @@ func (s Settings) Resolve(req Request) (*Route, error) {
 	}
 	route.Effort = effort
 	route.DefaultEffort = o.Effort
+	if isAlias && alias.Effort != "" {
+		route.DefaultEffort = alias.Effort
+	}
 	route.Accounts = o.Accounts
+	if picked {
+		route.Accounts = pickedAccounts
+	}
 	route.Strategy = s.StrategyFor(m)
 	return route, nil
 }

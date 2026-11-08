@@ -148,7 +148,7 @@ func (h *Handler) countRequest(w http.ResponseWriter, r *http.Request, f format,
 	}
 	var keyRules routing.KeyRules
 	_ = json.Unmarshal(owner.Key.ModelRules, &keyRules)
-	route, err := h.routing().Resolve(routing.Request{Model: gjson.GetBytes(body, "model").String(),
+	route, err := h.resolve(h.routing(), routing.Request{Model: gjson.GetBytes(body, "model").String(),
 		Format: apiFormat, KeyRules: keyRules, Allowed: owner.Key.AllowedModels})
 	switch {
 	case errors.Is(err, routing.ErrNotAllowed):

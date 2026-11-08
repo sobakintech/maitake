@@ -289,6 +289,20 @@ func (h *Handler) serveCompact(w http.ResponseWriter, r *http.Request) {
 	h.handle(w, r, &call{format: formatResponses, body: body, kind: kindCompact}, false)
 }
 
+// resolve routes a request with what the pool knows about its accounts' models.
+func (h *Handler) resolve(rs routing.Settings, req routing.Request) (*routing.Route, error) {
+	req.Inventory, req.Usable = h.accounts.Inventory, h.accounts.CanServe
+	return rs.Resolve(req)
+}
+
+// listedAliases are the aliases to show this key in a model list.
+func (h *Handler) listedAliases(rs routing.Settings, owner *store.KeyOwner) []routing.ListedAlias {
+	var keyRules routing.KeyRules
+	_ = json.Unmarshal(owner.Key.ModelRules, &keyRules)
+	return rs.ListedAliases(routing.Request{KeyRules: keyRules, Allowed: owner.Key.AllowedModels,
+		Inventory: h.accounts.Inventory, Usable: h.accounts.CanServe})
+}
+
 // handle routes and executes a parsed request; c carries format, body and kind.
 func (h *Handler) handle(w http.ResponseWriter, r *http.Request, c *call, openRouter bool) {
 	start := time.Now()
@@ -319,7 +333,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request, c *call, openRo
 	rs := h.routing()
 	var keyRules routing.KeyRules
 	_ = json.Unmarshal(owner.Key.ModelRules, &keyRules)
-	route, resolveErr := rs.Resolve(routing.Request{Model: c.model, Format: clientFormat(f, openRouter),
+	route, resolveErr := h.resolve(rs, routing.Request{Model: c.model, Format: clientFormat(f, openRouter),
 		KeyRules: keyRules, Allowed: owner.Key.AllowedModels, Providers: providerPrefs(body)})
 	c.route = route
 	c.baseModel, c.provider, c.effort = route.Model.ID, route.Model.Provider, route.Effort
@@ -577,10 +591,7 @@ func (h *Handler) listModels(w http.ResponseWriter, r *http.Request, openRouter 
 		m  models.Model
 	}
 	var list []entry
-	for _, m := range rs.Catalog() {
-		if !available[m.Provider] || rs.Models[m.Canonical].Disabled || !models.Allowed(owner.Key.AllowedModels, m) {
-			continue
-		}
+	add := func(m models.Model) {
 		switch naming {
 		case "canonical":
 			list = append(list, entry{m.Canonical, m})
@@ -588,6 +599,16 @@ func (h *Handler) listModels(w http.ResponseWriter, r *http.Request, openRouter 
 			list = append(list, entry{m.ID, m}, entry{m.Canonical, m})
 		default:
 			list = append(list, entry{m.ID, m})
+		}
+	}
+	for _, m := range rs.Catalog() {
+		if available[m.Provider] && !rs.Models[m.Canonical].Disabled && models.Allowed(owner.Key.AllowedModels, m) {
+			add(m)
+		}
+	}
+	for _, a := range h.listedAliases(rs, owner) {
+		if available[a.Model.Provider] {
+			add(a.Model)
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

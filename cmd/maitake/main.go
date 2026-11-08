@@ -144,6 +144,7 @@ func run(configPath string) error {
 	go auditLog.Run(bg)
 	go mgr.Run(ctx)
 	go mgr.RunPrimer(ctx)
+	go mgr.RunModelLists(ctx, func() time.Duration { return sets.Get().Routing.Aliases.RefreshInterval() })
 	go poller.Run(ctx)
 	go claudePoller.Run(ctx)
 	go updates.Run(ctx)

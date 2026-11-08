@@ -76,6 +76,19 @@ func newest(list []listedModel, line string) string {
 	return best.ID
 }
 
+// ListModels reports the models this account can use. Anything not "active" counts as a preview.
+func (p *Provider) ListModels(ctx context.Context, c provider.Credentials) ([]models.Listed, error) {
+	list, err := p.fetchModels(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]models.Listed, 0, len(list))
+	for _, m := range list {
+		out = append(out, models.Listed{ID: m.ID, Created: m.CreatedAt, Preview: m.Lifecycle != "" && m.Lifecycle != "active"})
+	}
+	return out, nil
+}
+
 // listModels returns the account's model list, cached; a failed fetch keeps the last good one.
 func (p *Provider) listModels(ctx context.Context, c provider.Credentials) []listedModel {
 	p.models.mu.Lock()

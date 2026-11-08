@@ -43,6 +43,18 @@ func isSignatureError(body string) bool {
 		strings.Contains(b, "encrypted content") && strings.Contains(b, "could not be verified")
 }
 
+const aliasModelCooldown = time.Hour
+
+// modelUnavailable spots an upstream saying this account can't use the model at all.
+func modelUnavailable(f failure) bool {
+	if f.status != http.StatusBadRequest && f.status != http.StatusForbidden && f.status != http.StatusNotFound {
+		return false
+	}
+	b := strings.ToLower(f.body)
+	return strings.Contains(b, "model_not_found") ||
+		strings.Contains(b, "not_found_error") && strings.Contains(b, `"model: `)
+}
+
 // defaultCooldown is the built-in bench time for a failure when no rule sets one.
 func defaultCooldown(c *call, f failure, now time.Time) time.Time {
 	if f.status == http.StatusTooManyRequests {
@@ -75,7 +87,12 @@ func (h *Handler) decide(c *call, f failure, s accounts.Settings) decision {
 	}
 	var d decision
 	scope, seconds := accounts.CooldownAuto, 0
-	if rule := s.MatchErrorRule(c.provider, f.status, f.body); rule != nil {
+	rule := s.MatchErrorRule(c.provider, f.status, f.body)
+	if rule == nil && c.route != nil && c.route.Alias != "" && modelUnavailable(f) {
+		// The account's model list was out of date. Benched, so the alias moves on next time.
+		return decision{retry: true, scope: accounts.CooldownModel, until: now.Add(aliasModelCooldown)}
+	}
+	if rule != nil {
 		d.retry = rule.Action == accounts.ActionRetry
 		scope, seconds = rule.Cooldown, rule.CooldownSeconds
 	} else {

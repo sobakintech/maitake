@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sobakintech/maitake/internal/models"
 	"github.com/sobakintech/maitake/internal/quota"
 )
 
@@ -92,6 +93,11 @@ type PingResult struct {
 // primer. A non-2xx answer is returned as an *HTTPError alongside the result.
 type Pinger interface {
 	Ping(ctx context.Context, c Credentials, model, prompt string) (*PingResult, error)
+}
+
+// ModelLister is a provider that can say which models an account may use.
+type ModelLister interface {
+	ListModels(ctx context.Context, c Credentials) ([]models.Listed, error)
 }
 
 // ErrInvalidGrant means the refresh token is dead and the account needs a new login.
