@@ -106,6 +106,8 @@ func New(d Deps) http.Handler {
 			r.Delete("/key-copies", s.clearKeySecrets)
 			r.Get("/models", s.listModels)
 			r.Post("/models/resolve", s.resolveModel)
+			r.Post("/models/aliases", s.aliasStatus)
+			r.Post("/models/refresh", s.refreshModelLists)
 			r.Post("/keys", s.createOwnedKey)
 			r.Patch("/keys/{id}", s.updateKey)
 			r.Delete("/keys/{id}", s.deleteKey)

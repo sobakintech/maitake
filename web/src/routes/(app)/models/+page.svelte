@@ -35,6 +35,7 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import AliasesTab from './aliases-tab.svelte';
 	import CustomModelDialog from './custom-model-dialog.svelte';
 	import ModelDialog from './model-dialog.svelte';
 	import type { PageProps } from './$types';
@@ -48,6 +49,7 @@
 
 	const tabs = [
 		{ id: 'catalog', label: 'Models' },
+		{ id: 'aliases', label: 'Aliases' },
 		{ id: 'mapping', label: 'Model mapping' },
 		{ id: 'routing', label: 'Routing' },
 		{ id: 'requests', label: 'Request rules' },
@@ -108,6 +110,12 @@
 			};
 		})
 	]);
+
+	const aliasNames = $derived(
+		rs.aliases.enabled
+			? [...new Set(rs.aliases.lines.filter((l) => l.enabled && l.name).map((l) => l.name))]
+			: []
+	);
 
 	function ov(canonical: string): ModelOverride {
 		return { ...emptyOverride, ...(rs.models[canonical] ?? {}) };
@@ -176,6 +184,8 @@
 			const next = draft.snapshot();
 			next.routing.stickyMinutes = Number(next.routing.stickyMinutes);
 			next.routing.payloadRules = next.routing.payloadRules.filter((r) => r.path.trim() !== '');
+			next.routing.aliases.refreshMinutes = Number(next.routing.aliases.refreshMinutes);
+			next.routing.aliases.lines = next.routing.aliases.lines.filter((l) => l.name.trim() !== '');
 			const { settings } = await admin.saveSettings(next);
 			draft.value = structuredClone(settings);
 			draft.commit();
@@ -194,6 +204,9 @@
 		<option value={m.id}></option>
 		<option value={m.canonical}></option>
 	{/each}
+	{#each aliasNames as name (name)}
+		<option value={name}></option>
+	{/each}
 </datalist>
 
 <div class="space-y-6">
@@ -205,7 +218,7 @@
 	</div>
 
 	<Tabs.Root value={tab} onValueChange={selectTab}>
-		<Tabs.List>
+		<Tabs.List class="max-w-full justify-start overflow-x-auto">
 			{#each tabs as t (t.id)}
 				<Tabs.Trigger value={t.id}>{t.label}</Tabs.Trigger>
 			{/each}
@@ -315,6 +328,10 @@
 			{/each}
 		</Tabs.Content>
 
+		<Tabs.Content value="aliases" class="space-y-6 pt-4">
+			<AliasesTab bind:aliases={rs.aliases} routing={rs} />
+		</Tabs.Content>
+
 		<Tabs.Content value="mapping" class="space-y-6 pt-4">
 			<Card.Root>
 				<Card.Header>
@@ -326,7 +343,7 @@
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					<RulesEditor bind:rules={rs.mappings} {catalog} idPrefix="global" />
+					<RulesEditor bind:rules={rs.mappings} {catalog} aliases={aliasNames} idPrefix="global" />
 				</Card.Content>
 			</Card.Root>
 			<Card.Root>

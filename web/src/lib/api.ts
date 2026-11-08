@@ -1,4 +1,5 @@
 import type {
+	AliasStatus,
 	ApiFormat,
 	AuditEntry,
 	AuditFilter,
@@ -152,12 +153,16 @@ export const admin = {
 	key: (id: number, f?: typeof fetch) =>
 		request<{ key: OwnedKey }>('GET', `/admin/keys/${id}`, undefined, f),
 	models: (f?: typeof fetch) =>
-		request<{ models: CatalogModel[]; labs: { id: string; name: string }[] }>(
-			'GET',
-			'/admin/models',
-			undefined,
-			f
-		),
+		request<{
+			models: CatalogModel[];
+			labs: { id: string; name: string }[];
+			aliases: string[];
+		}>('GET', '/admin/models', undefined, f),
+	aliasStatus: (routing: RoutingSettings) =>
+		request<{ aliases: AliasStatus[]; checkedAt: string | null }>('POST', '/admin/models/aliases', {
+			routing
+		}),
+	refreshModelLists: () => request<void>('POST', '/admin/models/refresh'),
 	resolve: (body: {
 		model: string;
 		format: ApiFormat;

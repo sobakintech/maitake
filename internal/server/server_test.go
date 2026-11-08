@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sobakintech/maitake/internal/accounts"
 	"github.com/sobakintech/maitake/internal/config"
+	"github.com/sobakintech/maitake/internal/routing"
 	"github.com/sobakintech/maitake/internal/secret"
 	"github.com/sobakintech/maitake/internal/settings"
 	"github.com/sobakintech/maitake/internal/store"
@@ -61,12 +63,76 @@ func newTestServer(t *testing.T) (*client, *client) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Deps{Config: cfg, Store: st, Settings: sets, Sealer: sealer, SetupToken: "setup-token"}))
+	mgr := accounts.New(st, func() accounts.Settings { return sets.Get().Pool })
+	ts := httptest.NewServer(New(Deps{Config: cfg, Store: st, Settings: sets, Accounts: mgr, Sealer: sealer, SetupToken: "setup-token"}))
 	t.Cleanup(ts.Close)
 	jar, _ := cookiejar.New(nil)
 	admin := &client{t: t, base: ts.URL, http: &http.Client{Jar: jar}}
 	anon := &client{t: t, base: ts.URL, http: &http.Client{}}
 	return admin, anon
+}
+
+func TestAliasAdmin(t *testing.T) {
+	admin, anon := newTestServer(t)
+	if code, _ := anon.do("POST", "/api/admin/models/aliases", map[string]any{}, nil); code != 401 {
+		t.Fatalf("alias status needs a login: %d", code)
+	}
+	if code, body := admin.do("POST", "/api/setup", map[string]string{"token": "setup-token", "username": "root", "password": "correct horse battery"}, nil); code != 200 {
+		t.Fatalf("setup: %d %v", code, body)
+	}
+
+	status := func(name string, body any) map[string]any {
+		t.Helper()
+		code, resp := admin.do("POST", "/api/admin/models/aliases", body, nil)
+		if code != 200 {
+			t.Fatalf("alias status: %d %v", code, resp)
+		}
+		for _, a := range resp["aliases"].([]any) {
+			if st := a.(map[string]any); st["name"] == name {
+				return st
+			}
+		}
+		t.Fatalf("%s missing: %v", name, resp)
+		return nil
+	}
+	if st := status("sol", map[string]any{}); st["model"] != nil || st["error"] == nil {
+		t.Errorf("no accounts means no model: %v", st)
+	}
+	draft := routing.DefaultSettings()
+	draft.Aliases.Source = routing.AliasSourceCatalog
+	st := status("sol", map[string]any{"routing": draft})
+	if st["model"].(map[string]any)["id"] != "gpt-6.1-sol" || len(st["candidates"].([]any)) < 2 {
+		t.Errorf("unsaved settings should be used: %v", st)
+	}
+
+	if code, body := admin.do("POST", "/api/admin/models/refresh", nil, nil); code != 204 {
+		t.Errorf("refresh: %d %v", code, body)
+	}
+	if code, body := admin.do("GET", "/api/admin/models", nil, nil); code != 200 || len(body["aliases"].([]any)) == 0 {
+		t.Errorf("catalog should name the aliases: %d %v", code, body)
+	}
+	code, resolved := admin.do("POST", "/api/admin/models/resolve", map[string]any{"model": "sol", "routing": draft}, nil)
+	if code != 200 || resolved["route"].(map[string]any)["alias"] != "sol" {
+		t.Errorf("resolve preview: %d %v", code, resolved)
+	}
+
+	code, created := admin.do("POST", "/api/admin/keys", map[string]string{"name": "k"}, nil)
+	if code != 201 {
+		t.Fatalf("create key: %d %v", code, created)
+	}
+	id := strconv.Itoa(int(created["key"].(map[string]any)["id"].(float64)))
+	rules := map[string]any{"modelRules": map[string]any{"rules": []any{}, "ignoreGlobal": false, "ignoreAliases": true}}
+	if code, body := admin.do("PATCH", "/api/admin/keys/"+id, rules, nil); code != 200 {
+		t.Fatalf("patch key: %d %v", code, body)
+	}
+	_, got := admin.do("GET", "/api/admin/keys/"+id, nil, nil)
+	if got["key"].(map[string]any)["modelRules"].(map[string]any)["ignoreAliases"] != true {
+		t.Errorf("ignoreAliases not saved: %v", got)
+	}
+	code, resolved = admin.do("POST", "/api/admin/models/resolve", map[string]any{"model": "sol", "routing": draft, "keyId": created["key"].(map[string]any)["id"]}, nil)
+	if code != 200 || resolved["error"] == nil {
+		t.Errorf("key with aliases off should fail to resolve: %d %v", code, resolved)
+	}
 }
 
 func TestAdminAndKeyFlow(t *testing.T) {

@@ -599,7 +599,38 @@ export type MappingRule = {
 	note: string;
 };
 
-export type KeyRules = { rules: MappingRule[] | null; ignoreGlobal: boolean };
+export type KeyRules = {
+	rules: MappingRule[] | null;
+	ignoreGlobal: boolean;
+	ignoreAliases: boolean;
+};
+
+export type Alias = {
+	id: string;
+	enabled: boolean;
+	name: string;
+	match: string;
+	pin: string;
+	effort: string;
+};
+
+export type AliasSettings = {
+	enabled: boolean;
+	source: 'live' | 'catalog';
+	refreshMinutes: number;
+	fallback: boolean;
+	preview: boolean;
+	list: boolean;
+	lines: Alias[];
+};
+
+export type AliasStatus = {
+	id: string;
+	name: string;
+	model?: { id: string; provider: Provider; name: string };
+	error?: string;
+	candidates: { id: string; name: string; provider: Provider; accounts: number; usable: boolean }[];
+};
 
 export type RoutingSettings = {
 	strategy: Strategy;
@@ -612,6 +643,7 @@ export type RoutingSettings = {
 	models: Record<string, ModelOverride>;
 	custom: CustomModel[];
 	mappings: MappingRule[];
+	aliases: AliasSettings;
 	payloadRules: PayloadRule[];
 	images: ImageSettings;
 };
@@ -655,6 +687,7 @@ export type Route = {
 	requested: string;
 	mapped?: string;
 	rule?: 'key' | 'global';
+	alias?: string;
 	model: { id: string; canonical: string; lab: string; provider: Provider; name: string };
 	effort?: string;
 	defaultEffort?: string;

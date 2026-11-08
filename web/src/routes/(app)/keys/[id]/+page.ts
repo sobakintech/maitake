@@ -4,16 +4,18 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, params }) => {
 	try {
-		const [{ key }, { models, labs }, { profiles, defaults }, { settings }] = await Promise.all([
-			admin.key(Number(params.id), fetch),
-			admin.models(fetch),
-			admin.profiles(fetch),
-			admin.settings(fetch)
-		]);
+		const [{ key }, { models, labs, aliases }, { profiles, defaults }, { settings }] =
+			await Promise.all([
+				admin.key(Number(params.id), fetch),
+				admin.models(fetch),
+				admin.profiles(fetch),
+				admin.settings(fetch)
+			]);
 		return {
 			key,
 			models,
 			labs,
+			aliases,
 			profiles,
 			blankView: defaults,
 			auditEnabled: settings.audit.enabled

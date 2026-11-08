@@ -36,6 +36,7 @@
 		displayProfileId: string;
 		rules: MappingRule[];
 		ignoreGlobal: boolean;
+		ignoreAliases: boolean;
 		auditMode: 'inherit' | 'on' | 'off';
 	};
 
@@ -49,6 +50,7 @@
 			displayProfileId: k.displayConfig ? 'custom' : String(k.displayProfileId ?? 0),
 			rules: (k.modelRules?.rules ?? []).map((r) => ({ ...r, formats: r.formats ?? [] })),
 			ignoreGlobal: k.modelRules?.ignoreGlobal ?? false,
+			ignoreAliases: k.modelRules?.ignoreAliases ?? false,
 			auditMode: k.auditMode || 'inherit'
 		};
 	}
@@ -97,7 +99,11 @@
 		on: 'Always record',
 		off: 'Never record'
 	});
-	const keyRules = $derived<KeyRules>({ rules: form.rules, ignoreGlobal: form.ignoreGlobal });
+	const keyRules = $derived<KeyRules>({
+		rules: form.rules,
+		ignoreGlobal: form.ignoreGlobal,
+		ignoreAliases: form.ignoreAliases
+	});
 
 	async function save() {
 		const f = draft.snapshot();
@@ -118,7 +124,11 @@
 							displayConfig: data.key.displayConfig ?? data.blankView
 						}
 					: { displayProfileId: Number(f.displayProfileId), displayConfig: null }),
-				modelRules: { rules: f.rules, ignoreGlobal: f.ignoreGlobal },
+				modelRules: {
+					rules: f.rules,
+					ignoreGlobal: f.ignoreGlobal,
+					ignoreAliases: f.ignoreAliases
+				},
 				auditMode: f.auditMode === 'inherit' ? '' : f.auditMode,
 				...(f.expiresAt !== data.key.expiresAt ? { expiresAt: f.expiresAt } : {})
 			});
@@ -157,6 +167,9 @@
 	{#each data.models as m (m.canonical)}
 		<option value={m.id}></option>
 		<option value={m.canonical}></option>
+	{/each}
+	{#each data.aliases as name (name)}
+		<option value={name}></option>
 	{/each}
 </datalist>
 
@@ -246,7 +259,21 @@
 				</Field.Content>
 				<Switch id="ignore-global" bind:checked={form.ignoreGlobal} />
 			</Field.Field>
-			<RulesEditor bind:rules={form.rules} catalog={data.models} idPrefix="key" />
+			<Field.Field orientation="horizontal">
+				<Field.Content>
+					<Field.Label for="ignore-aliases">Turn off aliases</Field.Label>
+					<Field.Description>
+						Names like <code>sol</code> stop working for this key and leave its model list.
+					</Field.Description>
+				</Field.Content>
+				<Switch id="ignore-aliases" bind:checked={form.ignoreAliases} />
+			</Field.Field>
+			<RulesEditor
+				bind:rules={form.rules}
+				catalog={data.models}
+				aliases={data.aliases}
+				idPrefix="key"
+			/>
 			<div class="space-y-2">
 				<p class="text-sm font-medium">Try it as this key</p>
 				<RouteTester

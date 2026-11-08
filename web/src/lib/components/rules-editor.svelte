@@ -13,8 +13,14 @@
 	let {
 		rules = $bindable(),
 		catalog,
+		aliases = [],
 		idPrefix = 'rules'
-	}: { rules: MappingRule[]; catalog: CatalogModel[]; idPrefix?: string } = $props();
+	}: {
+		rules: MappingRule[];
+		catalog: CatalogModel[];
+		aliases?: string[];
+		idPrefix?: string;
+	} = $props();
 
 	const efforts = [
 		{ value: '', label: 'Keep requested effort' },
@@ -42,6 +48,7 @@
 			'gpt-*',
 			'anthropic/*',
 			'openai/*',
+			...aliases,
 			...catalog.flatMap((m) => [m.id, m.canonical])
 		])
 	]);

@@ -13,6 +13,7 @@
 	import ProviderLogo from './provider-logo.svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
+	import { untrack } from 'svelte';
 
 	// Previews where a request would go, using unsaved rules/settings when given.
 	let {
@@ -20,13 +21,15 @@
 		rules,
 		allowed,
 		routing,
-		listId
+		listId,
+		initial = 'claude-haiku-4-5-20251001'
 	}: {
 		keyId?: number;
 		rules?: KeyRules;
 		allowed?: string[];
 		routing?: RoutingSettings;
 		listId?: string;
+		initial?: string;
 	} = $props();
 
 	const formats: { id: ApiFormat; label: string }[] = [
@@ -42,7 +45,7 @@
 		random: 'random'
 	};
 
-	let model = $state('claude-haiku-4-5-20251001');
+	let model = $state(untrack(() => initial));
 	let format = $state<ApiFormat>('anthropic');
 	let result = $state<{ route: Route; error?: string } | null>(null);
 	let failed = $state('');
@@ -110,13 +113,14 @@
 				<p class="text-xs text-muted-foreground">
 					{[
 						r.mapped ? `rewritten by a ${r.rule} rule` : 'no mapping rule',
+						r.alias ? `alias ${r.alias}` : '',
 						`served by ${providerName[r.model.provider]}`,
 						r.effort
 							? `effort ${r.effort}`
 							: r.defaultEffort
 								? `effort ${r.defaultEffort} unless the request sets one`
 								: 'effort from the request',
-						`accounts: ${r.accounts?.length ? `${r.accounts.length} picked` : 'any'}, ${strategyName[r.strategy]}`,
+						`accounts: ${r.accounts?.length ? `${r.accounts.length} ${r.alias ? 'can serve it' : 'picked'}` : 'any'}, ${strategyName[r.strategy]}`,
 						r.inCatalog ? '' : 'not in the catalog, passed through'
 					]
 						.filter(Boolean)

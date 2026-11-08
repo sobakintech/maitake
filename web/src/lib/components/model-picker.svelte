@@ -122,6 +122,7 @@
 				/>
 				<p class="text-xs text-muted-foreground">
 					One per line, <code>*</code> as a wildcard. Matches names with or without the lab prefix.
+					An alias like <code>sol</code> allows every model in its line.
 				</p>
 			</div>
 			{#if value.length === 0}

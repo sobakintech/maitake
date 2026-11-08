@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/sobakintech/maitake/internal/models"
 	"github.com/sobakintech/maitake/internal/routing"
@@ -39,7 +40,35 @@ func (s *Server) listModels(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, catalogEntry{Model: m, Disabled: o.Disabled, Override: o, Strategy: rs.StrategyFor(m), Accounts: n})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"models": out, "labs": models.Labs})
+	writeJSON(w, http.StatusOK, map[string]any{"models": out, "labs": models.Labs, "aliases": rs.Aliases.Names()})
+}
+
+// aliasStatus shows what each alias means right now, optionally under unsaved settings.
+func (s *Server) aliasStatus(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Routing *routing.Settings `json:"routing"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	rs := s.settings.Get().Routing
+	if body.Routing != nil {
+		rs = *body.Routing
+		rs.Normalize()
+	}
+	inv := s.accounts.Inventory()
+	var checked *time.Time
+	if !inv.CheckedAt.IsZero() {
+		checked = &inv.CheckedAt
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"checkedAt": checked, "aliases": rs.AliasStatuses(routing.Request{
+		Inventory: func() models.Inventory { return inv }, Usable: s.accounts.CanServe})})
+}
+
+// refreshModelLists asks every account for its models now.
+func (s *Server) refreshModelLists(w http.ResponseWriter, r *http.Request) {
+	s.accounts.RefreshModelLists(r.Context(), 0)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // resolveModel previews how a request would be routed, optionally as a specific key.
@@ -62,7 +91,7 @@ func (s *Server) resolveModel(w http.ResponseWriter, r *http.Request) {
 		rs = *body.Routing
 		rs.Normalize()
 	}
-	req := routing.Request{Model: body.Model, Format: body.Format}
+	req := routing.Request{Model: body.Model, Format: body.Format, Inventory: s.accounts.Inventory, Usable: s.accounts.CanServe}
 	if body.KeyID > 0 {
 		key, err := s.store.GetKey(r.Context(), body.KeyID)
 		if err != nil {
